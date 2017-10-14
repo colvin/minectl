@@ -1,0 +1,324 @@
+#!/usr/local/bin/bash
+#
+## mineclt/libminectl-help - help output functions
+
+## Copyright (c) 2014, Colvin Wellborn (GROND)
+## see the LICENSE included in the distribution for terms
+
+## f_help() - minectl help function
+#
+f_help(){
+    echo '==[ minectl help ]=====[ minectl '"v${version}"' ]============'
+    sf_help_usage(){
+    echo "usage: minectl <operation> <arguments>"
+	echo
+	echo "   operations:"
+	echo "     help    - displays help information"
+	echo "     start   - starts server"
+	echo "     stop    - stops server"
+	echo "     restart - restarts server"
+	echo "     create  - create a new server/world"
+	echo "     destroy - remove a server/world"
+	echo "     list    - show running servers"
+	echo "     console - interactive server command console"
+    echo "     log     - display the server log using tail"
+	echo "     update  - update to new (or old) minecraft version"
+	echo "     save    - issue save command to running server"
+	echo "     backup  - create backup archive of world"
+	echo "     map     - create overviewer map rendering of world"
+	echo "     daemon  - control a server's associated minectld daemon"
+	echo "     cleanup - remove stale runtime files after a crash"
+	echo
+	echo "  Arguments are unique to each operation"
+	echo
+	echo "  Use 'minectl help <operation>' for more details"
+	exit 0
+    }
+    sf_help_start(){
+	echo "usage: minectl start <worldname> [<options>]"
+	echo
+	echo "   options:"
+	echo "     all/none"
+	echo "     check/nocheck"
+	echo "     save/nosave"
+	echo "     bk/nobk"
+	echo "     map/nomap"
+	echo
+	echo "  This operation starts the minecraft server for the"
+	echo "   specified world."
+	echo
+	echo "  The options are used to override the default functions"
+	echo "   performed by the minectld daemon as defined in the"
+	echo "   config file. See the minectld help for more in-depth"
+	echo "   explanation of the daemon functions using:"
+	echo "    'minectl help minectld'"
+	exit 0
+    }
+    sf_help_stop(){
+	echo "usage: minectl stop <worldname> [<options>]"
+	echo
+	echo "   options:"
+	echo "     bk    - Create a backup archive after stopping"
+	echo "     nobk  - Don't create a backup archive after stopping"
+	echo "     map   - Create a map rendering after stopping"
+	echo "     nomap - Don't render the map after stopping"
+	echo
+	echo "  This operation stops a running minecraft world server."
+	echo
+	echo "  The options are used to override the defaults defined in"
+	echo "   the config file regarding the creation of a backup"
+	echo "   archive or map rendering after stopping the server."
+	exit 0
+    }
+    sf_help_restart(){
+	echo "usage: minectl restart <worldname>"
+	echo
+	echo "  This operation accepts no options. It will us the default"
+	echo "  settings to restart the world in-place. Only use this to"
+	echo "  update the server.properties or something. For fine-tuning"
+	echo "  the startup options (to override the defaults), you must"
+	echo "  manually stop and then start the server using"
+	echo "  'minectl stop <options>' and 'minectl start <options>'"
+	echo "  The default start/stop options are defined in the"
+	echo "  configuration file."
+	exit 0
+    }
+    sf_help_create(){
+	echo "usage: minectl create <worldname>"
+	echo
+	echo "  This operation takes one parameter, the name of the world"
+	echo "   to be created. It copies the server skeleton directory"
+	echo "   into a new directory under the srvsDIR directory, and"
+	echo "   creates a new directory under the runDIR directory."
+	echo "   It then opens up the server.properties file using either"
+	echo "   the editor set in the EDITOR environment variable or"
+	echo "   vi, such that the server's config can be edited. It also"
+	echo "   ensures that the directories created have the correct"
+	echo "   ownership and permissions mode, so you need sudo."
+	echo "  minectl starts the server using a launcher script located"
+	echo "   in the world's server directory which is automatically"
+	echo "   created. This script launches the minecraft server against"
+	echo "   a symlink in the server directory. This link is also created"
+	echo "   by this operation, and automatically creates a link against"
+	echo "   the server jar file with the highest version number stored"
+	echo "   in the '\$MINESRV_BASE/jar' directory. To link against a"
+	echo "   different version of the minecraft server jar, you must"
+	echo "   symlink it yourself. The link must be named"
+	echo "   'minecraft_server_<worldNAME>'. You can also change the"
+	echo "    the version of the minecraft jar file after creation"
+	echo "    using the 'minectl update' operation."
+	echo "  The ensuing server can then be directly started, provided"
+	echo "   that the server config is valid (correct ports and such)."
+	echo
+	echo "  Keep in mind that the name you give to your world cannot"
+	echo "   use one of the special minectl keywords, or else the"
+	echo "   program will become quite confused. These words are:"
+	echo "     create, destroy, start, stop, restart, list,"
+	echo "     console, log, update, help, save, backup,"
+	echo "     map, daemon, cleanup, check, nocheck, nosave"
+	echo "     bk, nobk, nomap, all, none"
+	exit 0
+    }
+    sf_help_destroy(){
+	echo "usage: minectl destroy <worldname> [bk|nobk]"
+	echo
+	echo "  This operation destroys all files particular to the"
+	echo "   specified world. This includes all of the runtime files"
+	echo "   as well as all of the server files, including the actual"
+	echo "   minecraft world directory. Any existing backups are not"
+	echo "   removed."
+	echo
+	echo "  The 'ultBK' variable in the config file specifies whether"
+	echo "   a backup archive is created prior to deletion, and can"
+	echo "   be overridden on the command line using the 'bk' or"
+	echo "   'nobk' options."
+
+	exit 0
+    }
+    sf_help_list(){
+	echo "usage: minectl list [<worldname>] [<running>]"
+	echo
+	echo "  This operation will list all of the minecraft servers"
+	echo "   on the system, as well as their server and RCON ports."
+	echo
+	echo "  If a worldname is specified, it will display whether the"
+	echo "   specified server is UP or DOWN and the associated ports."
+	echo
+	echo "  The 'running' option can also be used to only output"
+	echo "   information on currently running servers."
+	exit 0
+    }
+    sf_help_console(){
+	echo "usage: minectl console <worldname>"
+	echo
+	echo "  This operation will launch an interactive console using"
+	echo "   RCON to communicate with the minecraft server."
+	echo
+	echo "  The minectl console will take care of all of the RCON"
+	echo "   command parameters, you just need to issue minecraft"
+	echo "   server commands as you would in the native console."
+	echo
+	echo "  You can exit the console by issuing either 'exit' or"
+	echo "   'quit' at the console."
+	echo
+	echo "  Note that shutting down the server using the command"
+	echo "   console should not be done, as it will cause instability"
+	echo "   in the minectl program. Always shut down using the"
+	echo "   'minectl stop' command. This will perform a clean"
+	echo "   shutdown and allow minectl to clean up after itself."
+	echo "   For this reason, the 'stop' server command will be"
+	echo "   rejected if attempted through the console."
+	exit 0
+    }
+    sf_help_showlog(){
+	echo "usage: minectl log <worldname> [<tail-args>]"
+	echo
+	echo "  This operation provides a clean interface"
+	echo "   to viewing the server log."
+	echo
+	echo "  A worldname must be specified. This operation"
+	echo "   uses tail(1) for output, so any arguments"
+	echo "   following the worldname are passed directly"
+	echo "   to tail(1)."
+	exit 0
+    }
+    sf_help_srv_message(){
+	echo "usage: minectl message <worldname> \"<message>\""
+	echo
+	echo "  This operation uses RCON to issue the '/say' command"
+	echo "   to the minecraft server, using the specified message."
+	echo "   It can be used to immediately print a message to all"
+	echo "   users logged into the server. Quote the message."
+	exit 0
+    }
+    sf_help_update(){
+	echo "usage: minectl update [-l | -v <version>] <worldname>"
+	echo
+	echo "  This operation will replace the current symlink"
+	echo "   to a minecraft server .jar file with a new one,"
+	echo "   either the newest .jar file available or one"
+	echo "   specified on the command line using the '-v' option."
+	echo
+	echo "  The /srv/minecraft/jar directory contains the actual"
+	echo "   minecraft_server-<version>.jar files, and the server"
+	echo "   instances symlink to these .jar files. To update a"
+	echo "   server to the newest .jar file version available,"
+	echo "   first download the file from mojang, place it in the"
+	echo "   aforementioned directory, then run this procedure."
+	echo "   To downgrade, use the '-v <version>' arguements to"
+	echo "   specify the exact version number that should be"
+	echo "   symlinked to, in the form of '-v 1.7.6'. The .jar"
+	echo "   file must exist in the jar directory."
+	echo
+	echo "  The server should be stopped prior to doing this,"
+	echo "   and minectl will fail and complain if you don't stop"
+	echo "   your server first."
+	echo
+	echo "  Use the '-l' (elle) flag without any other arguments"
+	echo "   to list all available server versions."
+	exit 0
+    }
+    sf_help_save(){
+	echo "usage: minectl save <worldname>"
+	echo
+	echo "  This operation issues the '/save-all' command to the"
+	echo "   specified server using RCON."
+	exit 0
+    }
+    sf_help_backup(){
+	echo "usage: minectl backup <worldname>"
+	echo
+	echo "  This operation creates a backup archive of the specified"
+	echo "    minecraft world. Multiple backup locations are supported."
+	echo
+	echo "  Backup locations are set in the configuration file, using"
+	echo "   an indexed array. The default location for backups is"
+	echo "   /srv/minecraft/bk/<worldname>, and is assigned the index"
+	echo "   of 0. Further backup locations are specified by adding a"
+	echo "   new line to the configuration file and incrementing the"
+	echo "   index by one. minectl will iterate through the array,"
+	echo "   copying the backup archive to each listed backup directory."
+	echo
+	echo "  The function that performs this operation is the same one"
+	echo "   that performs backup operations in other minectl situations,"
+	echo "   such as during normal operation of minectld, after shutting"
+	echo "   down a server, or prior to the deletion of a server."
+	echo "   f_bk() performs the operations, but explicit calls from the"
+	echo "   command line ('minectl backup <worldname>') call a frontend"
+	echo "   first that then calls f_bk()."
+	exit 0
+    }
+    sf_help_map(){
+	echo "usage: minectl map <worldname>"
+	echo
+	echo "  This operation relies on the overviewer.py map generator."
+	echo "    It creates a copy of the world directory, and then calls"
+	echo "    overviewer.py to render a map. It attempts to do nothing"
+	echo "    with the map after rendering it, but the output directory"
+	echo "    can be controlled with the configuration file and then"
+	echo "    further stuff can be done with it externally from there,"
+	echo "    such as rsyncing the map to a web server for viewing."
+	echo
+	echo "  Like f_backup() and f_save(), f_map() is a frontend to"
+	echo "   f_mp(), which issues the actual commands to the overviewer.py"
+	echo "   program. This is done so that the map operation, as an"
+	echo "   explicit command, can define the initial configuration and"
+	echo "   other necessary things prior to calling f_mp(), which is"
+	echo "   itself called by other things such as minectld. that will"
+	echo "   also have defined the configuration."
+	exit 0
+    }
+    sf_help_daemon(){
+	echo "usage: minectl daemon <operation> <worldname>"
+	echo
+	echo " options:"
+	echo "    start   - starts a daemon if one is not running"
+	echo "    stop    - stops a running daemon"
+	echo "    restart - stops then starts a daemon"
+	echo "    status  - lists if a daemon is running, and stats if so"
+	echo
+	echo "  This operation controls a minectld daemon associated with "
+	echo "   a given server."
+	exit 0
+    }
+    sf_help_cleanup(){
+	echo "usage: minectl cleanup <worldname>"
+	echo
+	echo "  This operation must be used after a server has either"
+	echo "   crashed or otherwise shutdown uncleanly. Unclean"
+	echo "   shutdowns really mean killing the server without using"
+	echo "   the 'minectl stop' command. This will leave stale pid"
+	echo "   files and other runtime files used by minectl, and will"
+	echo "   typically prevent your server from being started again."
+	echo "   Running this command will remove these files. You cannot"
+	echo "   run this command against a server that is actually still"
+	echo "   running."
+	exit 0
+    }
+    ## Parse parameters
+    if [ $# -eq 0 ];then
+		sf_help_usage
+	fi
+    case $1 in
+		"usage")   sf_help_usage;;
+		"start")   sf_help_start;;
+		"stop")    sf_help_stop;;
+		"restart") sf_help_restart;;
+		"create")  sf_help_create;;
+		"destroy") sf_help_destroy;;
+		"list")    sf_help_list;;
+		"console") sf_help_console;;
+		"log")     sf_help_showlog;;
+		"message") sf_help_srv_message;;
+		"update")  sf_help_update;;
+		"save")    sf_help_save;;
+		"backup")  sf_help_backup;;
+		"map")     sf_help_map;;
+		"daemon")  sf_help_daemon;;
+		"cleanup") sf_help_cleanup;;
+		*) f_error "invalid parameter: $1"; exit 1;;
+    esac
+
+    exit 0
+}
+##

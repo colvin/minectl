@@ -1,0 +1,33 @@
+ Additional configuration is probably required
+
+  The installer did most of the work, but there may be some loose ends.
+
+  Check out the config file, stored in $MINECTL_CONF/minectl.conf
+
+  You will likely need to log out and back in to apply group membership
+  
+  minectl does not come with any Minecraft files. It is entirely up to you
+   as to whether, and how, to obtain Minecraft. Put the Minecraft server
+   file into the jar/ directory under the server directory
+
+  If you plan on using the manual creation mode and don't want to use
+   or don't know how to use vi, make sure to set EDITOR to another
+   text editor
+  
+  You also need to install an rcon client. minectl was designed to work
+   with mcrcon. Source for mcrcon is included in the minectl installer
+   distribution, as well as binaries for i386 and amd64 FreeBSD
+  
+  This distribution does not come with Overviewer, which can be used to
+   generate awesome web browseable isometric maps of your worlds. Grab
+   it at www.overviewer.org. Using Overviewer is resource-intensive, so
+   be careful when running on small hardware. Overviewer has some
+   dependencies:
+	- python 2.7
+	- py27-numpy
+	- py27-imaging
+   Then install it using 'python setup.py build'
+
+  Use 'minectl help' for more information
+
+GROND

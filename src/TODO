@@ -1,0 +1,41 @@
+o clean up documentation
+   o README
+   o LICENSE
+   o mcrcon/README
+   o ? installer creates $LOCALBASE/doc/minectl ?
+
+o backup management
+
+o 'import' feature
+    o import existing vanilla world
+    o import from exported minectl world
+o 'export' feature
+    o packages server,configs, and runfiles together for moving to new machine using minectl
+
+o create an actual notify script
+
+o manipulate amount of RAM allocated to server ( in launcher file )
+
+o move daemon functions to a separate lib file (libminectld) ?
+
+## FUTURE ##############################################
+
+o add another launch option using sudo
+    > sudo -u $mineUSER
+    > /usr/local/etc/sudoers configuration
+    > switch between using 'classic' or 'sudo' directive
+       > launch_method="classic" / launch_method="sudo"
+
+o variable RCON client
+
+o restart daemon
+
+o per-world configuration?
+	> use includes to pull in per-world config
+	> overrides defaults in minectl.conf
+
+o allow specifying alternate config file on command line
+
+o allow explicitly setting daemon function timers on command line
+
+##[ GROND ]

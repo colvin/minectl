@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+## sync-map
+
+## use ssh to tar over the overviewer output directory, and put it under
+## a webserver
+#
+## assumes that you can log in to the remote server without interaction,
+## such as a rsa key without a passphrase, or else it will prompt the
+## user for a password on stdout
+
+## defaults
+dstsrv='localhost.example.com'
+dstusr='username'
+dstprt='ssh_port'
+dstpth='/web/server/directory/root'
+## be sure to get this path right, or it can get weird
+## set one level above world directory, to include the world directory
+ovrvwr='/srv/minecraft/map/out'
+
+## must get the name of the world
+if [ $# -ne 1 ];then
+	echo 'usage: sync-map.sh <worldname>'
+	exit 1
+fi
+world="$1"
+
+##
+echo "[ sync-map ]: syncing $world to $dstsrv:$dstpth/$world"
+
+## do it
+cd $ovrvwr
+tar czf - $world/ | ssh -p $dstprt $dstusr@$dstsrv "tar xzmf - -C $dstpth"
+
+##
+echo "[ sync-map ]: done"
+##
+exit 0
+##

@@ -1,0 +1,2081 @@
+#!/usr/local/bin/bash
+#
+## minectl/libminectl - function libraries
+
+## Copyright (c) 2014, Colvin Wellborn (GROND)
+## see the LICENSE included in the distribution for terms
+
+## f_log() - Provides a simple logging function
+#
+f_log(){
+    is_time=$( date +%m-%d-%y_%H:%M )
+    message="$1"
+    echo "[ minectl ]: ${is_time} ${message}" >> $logFILE
+    unset is_time
+    unset message
+    ##
+}
+
+## f_error() - Provides a simple error output function
+#
+f_error(){
+	message="$1"
+	if [ "$output_colors" = "yes" ];then
+		echo -e '\033[31m[ minectl ]\033[39m:\033[31m[ ERROR ]\033[39m: '"${message}"
+	else
+		echo "[ minectl ]:[ERROR]: ${message}"
+	fi
+	unset message
+	##
+}
+
+## f_error_crit() - Critical error that requires script exit
+#
+f_error_crit(){
+	message="$1"
+	if [ "$output_colors" = "yes" ];then
+		echo -e '\033[31m[ minectl ]\033[39m:\033[31m[CRITICAL ERROR]\033[39m: '"${message}"
+	else
+		echo "[ minectl ]:[CRITICAL ERROR]: ${message}"
+	fi
+	f_log "[CRITICAL ERROR]: $message"
+	exit 1
+	unset message
+	##
+}
+
+## f_message() - Provides a simple output function
+#
+f_message(){
+    message="$1"
+	if [ "$output_colors" = "yes" ];then
+		echo -e '\033[32m[ minectl ]\033[39m: '"$message"
+	else
+	    echo "[ minectl ]: $message"
+	fi
+    unset message
+    ##
+}
+
+## f_get_yesno() - ask a yes or no question ('y' or 'n'), return answer in $yesno
+#
+f_get_yesno(){
+	message="$1"
+	if [ "$output_colors" = "yes" ];then
+		echo -n -e '\033[31m[ minectl ]\033[39m:>> '"$message "
+	else
+		echo -n "[ minectl ]:>> $message "
+	fi
+	read yesno
+	unset message
+}
+
+## f_get_input() - ask the user for some input string
+#
+f_get_input(){
+    message="$1"
+    if [ "$output_colors" = "yes" ];then
+        echo -n -e '\033[31m[ minectl ]\033[39m:>> '"$message "
+    else
+        echo -n "[ minectl ]:>> $message "
+    fi
+    read user_input
+    unset message
+}
+
+## df_log() - Daemon logging function
+#
+df_log(){
+    is_time=$( date +%m-%d-%y_%H:%M )
+    message="$1"
+    echo "[ minectld ]: ${worldNAME} ${pid} ${is_time}: ${message}"  >> $dlogFILE
+    unset is_time
+    unset message
+    ##
+}
+
+## df_debug() - Daemon debugging function
+#
+df_debug(){
+    message="$1"
+    echo "[ minectld ]: ${worldNAME} ${pid}: ${message}" >> $debugFILE
+    unset is_time
+    unset message
+    ##
+}
+
+## f_makesure() - validate an operation with the user
+#
+f_makesure(){
+    unset yesno
+    unset go_ahead
+	f_get_yesno "is this okay? [y/N] "
+    case $yesno in
+		"y")   go_ahead="yes";;
+		"Y")   go_ahead="yes";;
+		"yes") go_ahead="yes";;
+		"Yes") go_ahead="yes";;
+		*)     go_ahead="no";;
+	esac
+    unset yesno
+    ##
+}
+
+## f_permissions_server() - ensures proper mode on server files
+#
+f_permissions_server(){
+    find "$srvsDIR"/"$worldNAME" -type f | xargs sudo chmod 660
+    find "$srvsDIR"/"$worldNAME" -type d | xargs sudo chmod 770
+    sudo chmod 770 "$srvsDIR"/"$worldNAME"/launcher
+    sudo chown -R "$mineUSER":"$mineUSER" "$srvsDIR"/"$worldNAME"
+}
+
+## f_permissions_runfiles() - ensures proper mode on runtime files
+#
+f_permissions_runfiles(){
+    find "$runDIR"/"$worldNAME" -type f | xargs sudo chmod 660
+    find "$runDIR"/"$worldNAME" -type d | xargs sudo chmod 770
+    sudo chown -R "$mineUSER":"$mineUSER" "$runDIR"/"$worldNAME"
+}
+
+## f_sudo_test() - tests to make sure we have sudo
+#
+f_sudo_test(){
+    which sudo &> /dev/null
+    if [ $? -ne 0 ];then
+        f_error "minectl requires sudo to manipulate files and services as the minecraft user"
+        f_error "please install sudo"
+        exit 1
+    fi
+}
+
+## f_java_test() - tests to make sure we have java
+#
+f_java_test(){
+    which java &> /dev/null
+    if [ $? -ne 0 ];then
+        f_error "minecraft requires java"
+        f_error "please install a JRE, such as openjdk"
+        exit 1
+    fi
+}
+
+## f_jar_test() - make sure Minecraft server jar files are present
+f_jar_test(){
+    jars_num=$( ls $srvBASE/jar | wc -l | tr "\t" " " | tr -d " " )
+    if [ "$jars_num" = 0 ];then
+        f_error "no Minecraft server jar files available"
+        f_error "you must obtain these files from Mojang AB and install them"
+        f_error " in $srvBASE/jar"
+        exit 1
+    fi
+    ##
+}
+
+## f_rcon_test() - tests to make sure we have rcon the rcon client
+#
+f_rcon_test(){
+    which mcrcon &> /dev/null
+    if [ $? -ne 0 ];then
+        f_error "minectl requires an rcon client to communicate with the minecraft server"
+        f_error "mcrcon is an open-source client distributed with minectl"
+        f_error "inspect the minectl distribution for information"
+        exit 1
+    fi
+}
+
+## f_initialize_sudo() - print warning about sudo and initialize it
+#
+f_initialize_sudo(){
+	f_message "this operation will require the use of sudo"
+	sudo -v
+	if [ $? -ne 0 ];then
+		f_error "check your sudo configuration"
+		f_error "aborted"
+		exit 1
+	fi
+}
+
+## f_set_eula() - ask the user to accept the Mojang AB license
+#
+f_set_eula(){
+	f_error 'you must accept the eula from Mojang AB (https://account.mojang.com/documents/minecraft_eula)'
+	f_get_yesno "do you accept the license? [y/N]"
+	if [ "$yesno" = "y" ] || [ "$yesno" = "yes" ];then
+		echo "eula=true" > $srvsDIR/"$worldNAME"/eula.txt
+	else
+		f_error "license declined"
+		f_error "arborting"
+		exit 1
+	fi
+}
+
+## f_isrunning - determine if the server/world is running
+#
+f_isrunning(){
+    ## Check if called by f_cleanup
+    if [ "$1" ] && [ "$1" = "cleanup" ];then
+		from_cleanup="yes"
+    fi
+    ## Check for srv_pid file
+    if [ -e $runDIR/"$worldNAME"/srv_pid ];then
+    ## srv_pid file exists
+		## Check process list for that process
+		srv_pid=`cat $runDIR/"$worldNAME"/srv_pid`
+		ps ax | grep $srv_pid | grep -v "grep" > /dev/null
+		if [ $? -ne 0 ];then
+		## Process does not exist
+			isrunning="no"
+			## Check is server is listed as running
+			if [ -e $runDIR/running/"$worldNAME" ];then
+			## Server must have exited uncleanly
+				if [ ! "$from_cleanup" ];then 
+					f_message "server has likely crashed or been shut down uncleanly"
+					f_error_crit "f_isrunning(): server is listed as running but no process found: $worldNAME pid:$srv_pid"
+				fi
+			fi
+        else
+		## Process does exist
+			isrunning="yes"
+		fi
+    else
+    ## srv_pid file does not exist
+		isrunning="no"
+    fi
+    ## Check for srv_port file
+    if [ -e $runDIR/"$worldNAME"/srv_port ];then
+    ## srv_port file does exist
+		## Ensure that socket is listening
+		srv_port=`cat $runDIR/"$worldNAME"/srv_port`
+		sockstat | grep $srv_port > /dev/null
+		if [ $? -ne 0 ];then
+		## Socket is not listening
+			socket_bound="no"
+		else
+		## Socket is listening
+			socket_bound="yes"
+		fi
+    else
+    ## srv_port file does not exist
+		socket_bound="no"
+    fi
+    ##
+    unset from_cleanup
+    unset srv_pid
+    unset srv_port
+    ##
+}
+
+## f_validate() - ensures that specified server/world exists
+#
+f_validate(){
+	## worldNAME cannot be an empty string
+	if [ -z "$worldNAME" ];then
+		f_error_crit "f_validate(): worldNAME cannot be an empty string"
+	fi
+	## server directory must exist
+    if [ ! -d $srvsDIR/"$worldNAME" ];then
+		f_error_crit "f_validate(): no server directory found: $worldNAME"
+    fi
+	## runstat directory must exist
+    if [ ! -d $runDIR/"$worldNAME" ];then
+		f_error_crit "f_validate(): no runstat directory found: $worldNAME"
+    fi
+	## runstat files must be writeable
+    if [ ! -w $runDIR/"$worldNAME" ];then
+		f_error_crit "f_validate(): runtime statistics directory is not writeable: $worldNAME"
+    fi
+    ##
+}
+
+## f_verify_eula() - ensure the eula is accepted before starting
+#
+f_verify_eula() {
+	if [ ! -f $srvsDIR/"$worldNAME"/eula.txt ];then
+		f_set_eula
+	else
+		eula_status=$( cat $srvsDIR/"$worldNAME"/eula.txt | grep -e '^eula' | awk '{ FS = "=" } ; { print $2 }' )
+		if [ "$eula_status" != "true" ];then
+			f_set_eula
+		fi
+	fi
+}
+
+## f_start() - starts a minecraft server
+#
+f_start(){
+    ## make sure we have sudo, java, and rcon
+    f_sudo_test
+    f_java_test
+    f_rcon_test
+    ## Set default daemon parameters
+    if [ "$daemon_enable" = "yes" ];then
+		if [ "$defaultLOG" = "yes" ];then
+			do_log="yes"
+		fi
+		if [ "$defaultCHECK" = "yes" ];then
+			do_check="yes"
+		fi
+		if [ "$defaultSAVE" = "yes" ];then
+			do_save="yes"
+		fi
+		if [ "$defaultBK" = "yes" ];then
+			do_bk="yes"
+		fi
+		if [ "$defaultMAP" = "yes" ];then
+			do_map="yes"
+		fi
+    fi
+    ## Parse parameters
+    while [ $# -gt 0 ];do
+		case $1 in
+			"all")		do_check="yes"
+						do_save="yes"
+						do_bk="yes"
+						do_map="yes";;
+			"none")		unset do_check
+						unset do_save
+						unset do_bk
+						unset do_map;;
+		    "log")		do_log="yes";;
+		    "nolog")	unset do_log;;
+			"check")	do_check="yes";;
+			"nocheck")	unset do_check;;
+			"save")		do_save="yes";;
+			"nosave")	unset do_save;;
+			"bk")		do_bk="yes";;
+			"nobk")		unset do_bk;;
+			"map")		do_map="yes";;
+			"nomap")	unset do_map;;
+			*) worldNAME="$1";;
+		esac
+		shift
+    done
+	## worldNAME must not be empty
+	if [ -z "$worldNAME" ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## Turn daemon_enable on if any daemon functions were enabled
+    if [ "$do_check" ] || [ "$do_save" ] || [ "$do_bk" ] || [ "$do_map" ]; then
+		daemon_enable="yes"
+    else
+		unset daemon_enable
+    fi
+    ## Validate worldNAME
+    f_validate
+    ## Check that the server isn't already running
+    f_isrunning
+    if [ "$isrunning" = "yes" ];then
+		f_error "server is already running: $worldNAME"
+		exit 1
+	fi
+    if [ "$socket_bound" = "yes" ];then
+		f_error "port is already bound: $srv_port"
+		exit 1
+	fi
+	## Check for eula
+	f_verify_eula
+	## Initialize sudo
+	f_initialize_sudo
+    ## Ensure proper permissions on world directory
+    f_permissions_server
+    ## Change directories to srvsDIR/worldname
+    cd $srvsDIR/"$worldNAME"
+    ## Launch server
+    sudo su -m $mineUSER -c ./launcher &
+    ## Update runtime stats
+    f_runstat start
+    ## Build daemon's actual parameters (note the spaces)
+    if [ "$daemon_enable" = "yes" ];then
+		if [ "$do_check" = "yes" ];then
+			minectld_params+=" check "
+		fi
+		if [ "$do_save" = "yes" ];then
+			minectld_params+=" save "
+		fi
+		if [ "$do_bk" = "yes" ];then
+			minectld_params+=" bk "
+		fi
+		if [ "$do_map" = "yes" ];then
+    	    minectld_params+=" map "
+		fi
+		## Start daemon
+		$skripDIR/minectld "$worldNAME" $minectld_params &
+    fi
+    ## unmark as virgin, if necessary
+    if [ -f $runDIR/"$worldNAME"/virgin ];then
+        rm $runDIR/"$worldNAME"/virgin
+    fi
+    ##
+    f_log "server started: $worldNAME"
+    exit 0
+    ##
+    unset minectld_params
+    unset do_check
+    unset do_save
+    unset do_bk
+    unset do_map
+    ##
+}
+
+## f_stop() - stops a running minecraft server
+#
+f_stop(){
+    ## make sure we have the rcon client
+    f_rcon_test
+    ## Set defaults
+    [[ "$finalBK" = "yes" ]] && do_bk="yes"
+    [[ "$finalMAP" = "yes" ]] && do_map="yes"
+    ## Parse parameters
+    while [ $# -gt 0 ];do
+		case $1 in
+			"bk")    do_bk="yes";;
+			"nobk")  unset do_bk;;
+			"map")   do_map="yes";;
+			"nomap") unset do_map;;
+			*) worldNAME="$1";;
+		esac
+		shift
+    done
+	## worldNAME cannot be empty
+	if [ -z "$worldNAME" ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## Validate worldNAME
+    f_validate
+    ## Ensure server is running
+    if [ ! -e $runDIR/running/"$worldNAME" ] || [ ! -e $runDIR/"$worldNAME"/srv_pid ]; then
+		f_error "specified server does not seem to be running: $worldNAME"
+		exit 1
+    fi
+    ps ax | grep `cat $runDIR/"$worldNAME"/srv_pid` | grep -v "grep" > /dev/null
+    if [ $? -ne 0 ];then
+		f_error "specified server does not seem to be running: $worldNAME"
+		exit 1
+	fi
+    ## Determine if the server has an associated daemon running
+    if [ -e $runDIR/"$worldNAME"/daemon_pid ];then
+		has_daemon="yes"
+		daemon_pid=`cat $runDIR/"$worldNAME"/daemon_pid`
+    fi
+    ## Ensure that the RCON port is available
+    rcon_port=`cat $runDIR/"$worldNAME"/rcon_port`
+    sockstat | grep $rcon_port > /dev/null
+    if [ $? -ne 0 ];then
+		f_error "RCON port is not available: $rcon_port"
+		exit 1
+    fi
+    ## Issue server stop command through RCON
+    rcon_password=`cat $runDIR/"$worldNAME"/rcon_password`
+    mcrcon -H localhost -P $rcon_port -p $rcon_password stop
+    ## Wait for server to actually stop
+    f_message "waiting for server to stop"
+    srv_pid=`cat $runDIR/"$worldNAME"/srv_pid`
+    while ps ax | grep $srv_pid | grep -v "grep" > /dev/null; do
+		echo -n "."
+    done
+	echo
+    f_message "done"
+    ## Update runstats
+    f_runstat stop
+    ## Stop daemon, if one is running
+    if [ "$has_daemon" ];then
+		kill -SIGTERM $daemon_pid
+    fi
+    ## Wait for daemon to stop
+    if [ "$has_daemon" ];then
+		f_message "waiting for daemon to stop"
+		while ps ax | grep $daemon_pid | grep -v "grep" > /dev/null;do
+			echo -n "."
+		done
+		echo
+		f_message "done"
+    fi
+    ## Run backup routine, if enabled
+    if [ "$do_bk" ];then
+		f_message "creating final backup..."
+		f_bk
+		f_message "done"
+    fi
+    ## Run map generation routine, if enabled
+    if [ "$do_map" ];then
+		f_message "creating final map rendering..."
+		f_map &
+    fi
+    ##
+    f_log "server stopped: $worldNAME"
+    ##
+    unset has_daemon
+    unset daemon_pid
+    unset rcon_port
+    unset srv_pid
+    unset do_bk
+    unset do_map
+    ##
+}
+
+## f_restart() - in-place restart of minecraft server
+#
+f_restart(){
+    ## Parse
+    if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+    fi
+    worldNAME="$1"
+    f_validate
+    ## Stop server
+    f_stop "$worldNAME"
+    ## Wait until socket is unbound
+    f_message "waiting for socket to close"
+    while :; do
+		sleep 1
+		netstat -a | grep `cat $runDIR/"$worldNAME"/srv_port` > /dev/null
+		if [ $? -eq 0 ];then
+			echo -n "."
+		else
+			break
+        fi
+    done
+    ## Start server
+    f_start "$worldNAME"
+    ##
+}
+
+## f_runstat() - sets/updates/removes runtime stats
+#
+f_runstat(){
+    ## Create stats upon server start
+    sf_start(){
+		## Let server get setup first
+		sleep 10
+		## Validate worldNAME - directory exists and is writeable
+		f_validate
+		## Ensure that server instance is actually running
+		ps ax | grep "$worldNAME" > /dev/null
+		if [ $? -ne 0 ];then
+			f_error_crit "f_runstat(): world does not seem to be running: $worldNAME"
+		fi
+		## Mark server as running
+		touch $runDIR/running/"$worldNAME"
+		## Log server launch time
+		date "+%m-%d-%y_%H:%M" > $runDIR/"$worldNAME"/launch_time
+		## Log server pid
+		srv_pid=`ps axww | grep "$worldNAME" | grep -v "minectl" | grep -v "grep" | awk '{ print $1 }'`
+		echo $srv_pid > $runDIR/"$worldNAME"/srv_pid
+		## Log server listening port
+		srv_port=`grep "server-port" $srvsDIR/"$worldNAME"/server.properties | cut -d"=" -f2`
+		echo $srv_port > $runDIR/"$worldNAME"/srv_port
+		## Log RCON listening port
+		rcon_port=`grep "rcon.port" $srvsDIR/"$worldNAME"/server.properties | cut -d"=" -f2`
+		echo $rcon_port > $runDIR/"$worldNAME"/rcon_port
+		## Log RCON password
+		rcon_password=`grep "rcon.password" $srvsDIR/"$worldNAME"/server.properties | cut -d"=" -f2`
+		echo $rcon_password > $runDIR/"$worldNAME"/rcon_password
+        ## ensure proper ownership and mode
+        f_permissions_runfiles
+		###################################
+    }
+    sf_stop(){
+		## Remove from the running list
+		rm $runDIR/running/"$worldNAME"
+		## Remove pid
+		rm $runDIR/"$worldNAME"/srv_pid
+		## Remove lauch time
+		rm $runDIR/"$worldNAME"/launch_time
+    }
+    ## Parse parameters
+    if [ $# -ne 1 ];then
+		f_error_crit "f_runstat(): supply exactly one parameter: $*"
+    fi
+    case $1 in
+		"start") sf_start;;
+		"stop")  sf_stop;;
+		*) f_error_crit "f_runstat(): invalid parameter: $1";;
+    esac
+    ##
+}
+
+## f_jarversion() - determine newest java jar version
+#
+f_jarversion(){
+    ls $jarsDIR > /tmp/minejar_versions
+    n=0
+	while read line;do
+		jar[$n]="$line"
+		ver[$n]=`echo "$line" | cut -d"." -f2-4 | sed 's/\.//g'`
+		## Ensure that versions are clean numbers
+		echo "${ver[$n]}" | grep "[a-z]" &> /dev/null
+		if [ $? -eq 0 ];then
+			f_error "list of minecraft jar files is unclean"
+			f_error "ensure that jar file version numbers are three digits"
+			f_error "for instance: "
+			f_error "   minecraft_server.1.8.jar"
+			f_error " must be changed to"
+			f_error "   minecraft_server.1.8.0.jar"
+			exit 1
+		fi
+		let n++
+    done < /tmp/minejar_versions
+    num_jars=$n
+    max_ver=${ver[0]}
+    n=0
+	while [ $n -lt $num_jars ];do
+		next=${ver[$n]}
+		if [ $next -gt $max_ver ];then
+			max_ver=$next
+			max_index=$n
+		fi
+		let n++
+    done
+    minejar="${jar[$max_index]}"
+    rm /tmp/minejar_versions
+    ##
+    unset n
+    unset line
+    unset num_jars
+    unset max_ver
+    unset next
+    unset max_index
+    ##
+}
+
+## f_listversion() - lists all available server .jar file versions
+#
+f_listversions(){
+    ls $jarsDIR > /tmp/minejar_versions
+    while read line;do
+		f_message "$line"
+    done < /tmp/minejar_versions
+    rm /tmp/minejar_versions
+	unset line
+	exit 0
+    ##
+}
+
+## f_get_bound_ports() - builds arrays of bound server and rcon ports
+#
+f_get_bound_ports(){
+	n=0
+	while read line;do
+		bound_ports_srv[$n]="$line"
+		let n++
+	done < $runDIR/bound.ports.srv
+	n=0
+	while read line;do
+		bound_ports_rcon[$n]="$line"
+		let n++
+	done < $runDIR/bound.ports.rcon
+	##
+	unset n
+}
+
+## f_create() - create a new server/world
+#
+f_create(){
+    ## make sure we have sudo and java
+    f_sudo_test
+    f_java_test
+    f_jar_test
+	## Must get worldname argument
+	if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## First arg is a world name
+    worldNAME="$1"
+    shift
+    ## Second arg can override default for creation mode
+	create_mode="$defaultCREATE"
+	if [ "$1" ];then
+		case $1 in
+			"auto")   create_mode="auto";;
+			"manual") create_mode="manual";;
+			"man")    create_mode="manual";;
+			*) f_error "unrecognized argument: $1"; exit 1;;
+		esac
+	fi
+    ## Check that world does not already exist or use a restricted name
+	grep "$worldNAME" $runDIR/bound.names &> /dev/null
+	if [ $? -eq 0 ];then
+		f_error "world by that name already exists: $worldNAME"
+		exit 1
+	fi
+	grep "$worldNAME" $runDIR/restricted.names &> /dev/null
+	if [ $? -eq 0 ];then
+		f_error "world name is a restricted keyword, cannot use name: $worldNAME"
+		exit 1
+	fi
+	## initialize sudo
+	f_initialize_sudo
+    ## Create srvDIR
+    cp -r $skelDIR $srvsDIR/"$worldNAME"
+    ## Create backup location(s)
+    num_bk_dirs=${#bkDIR[*]}
+    n=0
+    while [ $n -lt $num_bk_dirs ];do
+		mkdir -p ${bkDIR[$n]}/"$worldNAME"
+		sudo chown $mineUSER:$mineUSER ${bkDIR[$n]}/"$worldNAME"
+		sudo chmod 770 ${bkDIR[$n]}/"$worldNAME"
+		sudo chmod g+s ${bkDIR[$n]}/"$worldNAME"
+		let n++
+    done
+    ## Create runstat directory
+    mkdir $runDIR/"$worldNAME"
+    ## add new world name to list
+	echo "$worldNAME" >> $runDIR/bound.names
+    ## Move to new directory
+    cd $srvsDIR/"$worldNAME"
+    ## Update server.properties
+    cat server.properties | sed "s/world/$worldNAME/g" > server.properties.new
+    mv server.properties.new server.properties
+    ## Set the launcher script
+    cat launcher | sed "s/replace/$worldNAME/g" > launcher.new
+    mv launcher.new launcher
+    ## Determine the newest minecraft jar file
+    f_jarversion
+    ## Create symlink
+    ln -s $jarsDIR/$minejar minecraft_server_"$worldNAME"
+    sudo chown -h $mineUSER minecraft_server_"$worldNAME"
+    ## Record version
+    orig_ver=`echo $minejar | cut -d"." -f2-4`
+    echo "$orig_ver" > $runDIR/"$worldNAME"/original_version
+    echo "$orig_ver" > $runDIR/"$worldNAME"/current_version
+	## Get arrays of bound ports
+	f_get_bound_ports
+	## Manual creation mode
+	sf_create_manual(){
+		## Create loop for reeditting, if neccessary
+		while [ "$edit_file" = "yes" ];do
+			## Edit server.properties
+			$mineEDITOR server.properties
+			## Ensure ports aren't already bound
+			srv_port=$( grep 'server-port' server.properties | awk '{ FS = "=" } ; { print $2 }' )
+			rcon_port=$( grep 'rcon.port' server.properties | awk '{ FS = "=" } ; { print $2  }' )
+			grep "$srv_port" $runDIR/bound.ports.srv > /dev/null
+			if [ $? -eq 0 ];then srv_is_bound="yes"; fi
+			grep "$srv_port" $runDIR/bound.ports.rcon > /dev/null
+			if [ $? -eq 0 ];then srv_is_bound="yes"; fi
+			grep "$rcon_port" $runDIR/bound.ports.rcon > /dev/null
+			if [ $? -eq 0 ];then rcon_is_bound="yes"; fi
+			grep "$rcon_port" $runDIR/bound.ports.srv > /dev/null
+			if [ $? -eq 0 ];then rcon_is_bound="yes"; fi
+			if [ "$srv_is_bound" ] || [ "$rcon_is_bound" ];then
+				if [ "$srv_is_bound" ];then
+					f_error "server port is already bound: $srv_port"
+				fi
+				if [ "$rcon_is_bound" ];then
+					f_error "rcon port is already bound: $rcon_port"
+				fi
+				f_message "bound ports are: "
+				n=0
+				while [ $n -lt ${#bound_ports_srv[*]} ];do
+					f_message "   server: ${bound_ports_srv[$n]}"
+					let n++
+				done
+				n=0
+				while [ $n -lt ${#bound_ports_rcon[*]} ];do
+					f_message "   rcon:   ${bound_ports_rcon[$n]}"
+					let n++
+				done
+				f_get_yesno "reopen the file for editing? [Y/n]"
+				case $yesno in
+					"n")   edit_file="no";;
+					"N")   edit_file="no";;
+					"no")  edit_file="no";;
+					"No")  edit_file="no";;
+					*) edit_file="yes";;
+				esac
+			else
+				edit_file="no"
+			fi
+			unset srv_is_bound
+			unset rcon_is_bound
+		done
+	}
+	## Automatic creation mode
+	sf_create_auto(){
+        ## print header
+        f_message "configuring server.properties file in auto mode"
+        ## choose basic or advanced
+        f_get_input "[b]asic mode or [a]dvanced mode? [B/a]"
+        if [ "$user_input" = "a" ] || [ "$user_input" = "A" ];then
+            f_message "using advanced mode"
+            auto_mode="a"
+        else
+            f_message "using basic mode"
+            auto_mode="b"
+        fi
+        ## determine port numbers
+        ssf_auto_determine_ports(){
+            ## server port
+            ## start with configured beginning port (minectl.conf)
+            auto_srvport="$create_start_srv_port"
+            ## iteratively check if available
+            cont="n"
+            while [ "$cont" = "n" ];do
+                grep "$auto_srvport" $runDIR/bound.ports.srv &> /dev/null
+                if [ $? -eq 0 ];then
+                    auto_srvport=$(( $auto_srvport + 1 ))
+                    continue
+                fi
+                grep "$auto_srvport" $runDIR/bound.ports.rcon &> /dev/null
+                if [ $? -eq 0 ];then
+                    auto_srvport=$(( $auto_srvport + 1 ))
+                    continue
+                fi
+                cont="y"
+            done
+            unset cont
+            ## rcon port
+            auto_rconport="$create_start_rcon_port"
+            cont="n"
+            while [ "$cont" = "n" ];do
+                grep "$auto_rconport" $runDIR/bound.ports.rcon &> /dev/null
+                if [ $? -eq 0 ];then
+                    auto_rconport=$(( $auto_rconport + 1 ))
+                    continue
+                fi
+                grep "$auto_rconport" $runDIR/bound.ports.srv &> /dev/null
+                if [ $? -eq 0 ];then
+                    auto_rconport=$(( $auto_rconport + 1 ))
+                    continue
+                fi
+                cont="y"
+            done
+        }
+        ## create config file from specified values
+        ssf_auto_apply_config(){
+            ## return the current value
+            sssf_get_value(){
+                get_value="$1"
+                return_value=$( grep -e "^$1" server.properties | cut -d'=' -f2 )
+            }
+            ## move new file to main
+            sssf_overwrite(){
+                mv server.properties.new server.properties
+            }
+            ## server port
+            sssf_get_value "server-port"
+            sed -e "s/server-port=$return_value/server-port=$auto_srvport/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## rcon port
+            sssf_get_value "rcon.port"
+            sed -e "s/rcon.port=$return_value/rcon.port=$auto_rconport/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## description
+            sssf_get_value "motd"
+            sed -e "s;motd=$return_value;motd=$auto_world_descr;g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## game mode
+            sssf_get_value "gamemode"
+            sed -e "s/^gamemode=$return_value/gamemode=$auto_game_mode/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## max users
+            sssf_get_value "max-players"
+            sed -e "s/max-players=$return_value/max-players=$auto_max_users/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## difficulty
+            sssf_get_value "difficulty"
+            sed -e "s/difficulty=$return_value/difficulty=$auto_difficulty/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## rcon password
+            sssf_get_value "rcon.password"
+            sed -e "s/rcon.password=$return_value/rcon.password=$auto_rcon_passwd/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## world seed
+            sssf_get_value "level-seed"
+            sed -e "s/level-seed=$return_value/level-seed=$auto_world_seed/g" < server.properties >> server.properties.new
+            sssf_overwrite
+            ## nether
+            if [ "$auto_allow_nether" = "false" ];then
+                sssf_get_value "allow-nether"
+                sed -e "s/allow-nether=$return_value/allow-nether=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## command block
+            if [ "$auto_enable_commandblock" = "false" ];then
+                sssf_get_value "enable-command-block"
+                sed -e "s/enable-command-block=$return_value/enable-command-block=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## pvp
+            if [ "$auto_pvp" = "false" ];then
+                sssf_get_value "pvp"
+                sed -e "s/pvp=$return_value/pvp=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## hardcore
+            if [ "$auto_hardcore" = "true" ];then
+                sssf_get_value "hardcore"
+                sed -e "s/hardcore=$return_value/hardcore=true/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## flight
+            if [ "$auto_flight" = "true" ];then
+                sssf_get_value "allow-flight"
+                sed -e "s/allow-flight=$return_value/allow-flight=true/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## npcs
+            if [ "$auto_spawn_npcs" = "false" ];then
+                sssf_get_value "spawn-npcs"
+                sed -e "s/spawn-npcs=$return_value/spawn-npcs=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## monsters
+            if [ "$auto_spawn_monsters" = "false" ];then
+                sssf_get_value "spawn-monsters"
+                sed -e "s/spawn-monsters=$return_value/spawn-monsters=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## animals
+            if [ "$auto_spawn_animals" = "false" ];then
+                sssf_get_value "spawn-animals"
+                sed -e "s/spawn-animals=$return_value/spawn-animals=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## structures
+            if [ "$auto_spawn_structures" = "false" ];then
+                sssf_get_value "generate-structures"
+                sed -e "s/generate-structures=$return_value/generate-structures=false/g" < server.properties >> server.properties.new
+                sssf_overwrite
+            fi
+            ## populate ops if necessary
+            if [ "$auto_do_ops" = "y" ];then
+                n=0
+                while [ $n -lt $auto_num_ops ];do
+                    echo "${auto_ops[$n]}" >> ops.txt
+                    let n++
+                done
+                unset n
+            fi
+            ## populate whitelist
+            if [ "$auto_do_whitelist" = "y" ];then
+                sssf_get_value "white-list"
+                sed -e "s/white-list=$return_value/white-list=true/g" < server.properties >> server.properties.new
+                n=0
+                while [ $n -lt $auto_num_whitelist ];do
+                    echo "${auto_whitelist[$n]}" >> white-list.txt
+                    let n++
+                done
+                unset n
+            fi
+            ## 
+        }
+        ## define basic mode questions
+        ssf_auto_basic(){
+            ## automatically determine port numbers, if in basic mode
+            if [ "$auto_mode" = "b" ];then
+                ssf_auto_determine_ports
+            fi
+            ## world description
+            f_get_input "enter the world description: "
+            auto_world_descr="$user_input"
+            unset user_input
+            ## game mode (survival/creative/adventure) - in loop for validation
+            cont="n"
+            while [ "$cont" = "n" ];do
+                f_get_input "use [s]urvival, [c]reative, or [a]dventure mode? "
+                cont="y"
+                case "$user_input" in
+                    "s"|"S") auto_game_mode="0";;
+                    "c"|"C") auto_game_mode="1";;
+                    "a"|"A") auto_game_mode="2";;
+                    *) f_error "invalid input"; cont="n";;
+                esac
+            done
+            unset cont
+            unset user_input
+            ## seed?
+            f_get_input "enter a world seed? [y/N] "
+            if [ "$user_input" = "y" ] || [ "$user_input" = "Y" ];then
+                unset user_input
+                f_get_input "enter the seed: "
+                auto_world_seed="$user_input"
+            fi
+            unset user_input  
+            ## pvp
+            f_get_input "allow pvp? [Y/n] "
+            if [ "$user_input" = "n" ] || [ "$user_input" = "N" ];then
+                auto_pvp="false"
+            fi
+            unset user_input
+            ## whitelist?
+            f_get_yesno "create a whitelist? [y/N] "
+            if [ "$yesno" = "y" ] || [ "$yesno" = "Y" ];then
+                auto_do_whitelist="y"
+                ## get names - in loop
+                cont="y"
+                auto_num_whitelist=0
+                while [ "$cont" = "y" ];do
+                    f_get_input "enter a username (or 'q' to quit): "
+                    if [ "$user_input" = "q" ];then
+                        cont="n"
+                        continue
+                    else
+                        auto_whitelist[$auto_num_whitelist]="$user_input"
+                        auto_num_whitelist=$(( $auto_num_whitelist + 1 ))
+                    fi
+                done
+                unset user_input
+            fi
+            unset yesno
+            ## ops?
+            f_get_yesno "set up users as operators? [y/N] "
+            if [ "$yesno" = "y" ] || [ "$yesno" = "Y" ];then
+                auto_do_ops="y"
+                ## get names - in loop
+                cont="n"
+                auto_num_ops=0
+                while [ "$cont" = "n" ];do
+                    f_get_input "enter a username (or 'q' to quit): "
+                    if [ "$user_input" = "q" ];then
+                        cont="y"
+                        continue
+                    else
+                        auto_ops[$auto_num_ops]="$user_input"
+                        auto_num_ops=$(( $auto_num_ops + 1 ))
+                    fi
+                done
+                unset user_input
+            fi
+            unset yesno
+            ## max players
+            f_get_input "maximum number of players allowed at one time [5]: "
+            if [ -z "$user_input" ];then
+                auto_max_users="5"
+            else
+                auto_max_users="$user_input"
+            fi
+            unset user_input
+            ## rcon password - loop for validation
+            cont="n"
+            while [ "$cont" = "n" ];do
+                cont="y"
+                f_get_input "password for rcon client: "
+                if [ -z "$user_input" ];then
+                    f_error "password cannot be empty"
+                    cont="n"
+                    continue
+                fi
+                auto_rcon_passwd="$user_input"
+                unset user_input
+            done
+        }
+        ## define advanced mode questions
+        ssf_auto_adv(){
+            ## print list of bound ports
+            f_message "setting server and rcon ports"
+            if [ ${#bound_ports_srv[*]} -ne 0 ] || [ ${#bound_ports_rcon[*]} -ne 0 ];then
+                f_message "server ports in use:"
+                n=0
+                while [ $n -lt ${#bound_ports_srv[*]} ];do
+                    f_message "    ${bound_ports_srv[$n]}"
+                    let n++
+                done
+                f_message "rcon ports in use:"
+                n=0
+                while [ $n -lt ${#bound_ports_rcon[*]} ];do
+                    f_message "    ${bound_ports_rcon[$n]}"
+                    let n++
+                done
+            fi
+            ## get port numbers - loops for validation
+            cont="n"
+            while [ "$cont" = "n" ];do
+                f_get_input "enter the server port number: "
+                if [ -z "$user_input" ];then
+                    f_error "port number cannot be empty"
+                    cont="n"
+                    continue
+                fi
+                grep "$user_input" $runDIR/bound.ports.srv &> /dev/null
+                if [ $? -eq 0 ];then
+                    f_error "port is in use, select another"
+                    cont="n"
+                    unset user_input
+                    continue
+                fi
+                grep "$user_input" $runDIR/bound.ports.rcon &> /dev/null
+                if [ $? -eq 0 ];then
+                    f_error "port is in use, select another"
+                    cont="n"
+                    unset user_input
+                    continue
+                fi
+                cont="y"
+            done
+            auto_srvport="$user_input"
+            unset user_input
+            cont="n"
+            while [ "$cont" = "n" ];do
+                f_get_input "enter the rcon port number: "
+                if [ -z "$user_input" ];then
+                    f_error "port number cannot be empty"
+                    cont="n"
+                    continue
+                fi
+                grep "$user_input" $runDIR/bound.ports.srv &> /dev/null
+                if [ $? -eq 0 ];then
+                    f_error "port is in use, select another"
+                    continue
+                fi
+                grep "$user_input" $runDIR/bound.ports.rcon &> /dev/null
+                if [ $? -eq 0 ];then
+                    f_error "port is in use, select another"
+                    unset user_input
+                    continue
+                fi
+                cont="y"
+            done
+            unset cont
+            auto_rconport="$user_input"
+            unset user_input
+            ## do basic mode questions
+            ssf_auto_basic
+            ## difficulty - loop for validation
+            cont="n"
+            while [ "$cont" = "n" ];do
+                cont="y"
+                f_get_input "difficulty mode: [p]eaceful, [e]asy, [n]ormal, [h]ard "
+                case "$user_input" in
+                    "p"|"P") auto_difficulty="0";;
+                    "e"|"E") auto_difficulty="1";;
+                    "n"|"N") auto_difficulty="2";;
+                    "h"|"H") auto_difficulty="3";;
+                    *) f_error "invalid selection"; cont="n";;
+                esac
+            done
+            unset cont
+            unset user_input
+            ## hardcore mode
+            f_get_input "use hardcore mode? [y/N] "
+            if [ "$user_input" = "y" ] || [ "$user_input" = "Y" ];then
+                auto_hardcore="true"
+            fi
+            unset user_input
+            ## allow flight
+            f_get_input "allow flight? [y/N] "
+            if [ "$user_input" = "y" ] || [ "$user_input" = "Y" ];then
+                auto_flight="true"
+            fi
+            unset user_input
+            ## spawn npcs
+            f_get_input "spawn NPCs? [Y/n] "
+            if [ "$user_input" = "n" ] || [ "$user_input" = "N" ];then
+                auto_spawn_npcs="false"
+            fi
+            unset user_input
+            ## spawn animals
+            f_get_input "spawn animals? [Y/n] "
+            if [ "$user_input" = "n" ] || [ "$user_input" = "N" ];then
+                auto_spawn_animals="false"
+            fi
+            unset user_input
+            ## spawn monsters
+            f_get_input "spawn monsters? [Y/n] "
+            if [ "$user_input" = "n" ] || [ "$user_input" = "N" ];then
+                auto_spawn_monsters="false"
+            fi
+            unset user_input
+            ## generate structures
+            f_get_input "spawn structures? [Y/n] "
+            if [ "$user_input" = "n" ] || [ "$user_input" = "N" ];then
+                auto_spawn_structures="false"
+            fi
+            unset user_input
+            ## command block
+            f_get_input "allow command blocks? [y/N] "
+            if [ "$user_input" = "y" ] || [ "$user_input" = "Y" ];then
+                auto_enable_commandblock="false"
+            fi
+            unset user_input
+            ## nether
+            f_get_input "allow nether? [Y/n] "
+            if [ "$user_input" = "n" ] || [ "$user_input" = "N" ];then
+                auto_allow_nether="false"
+            fi
+            unset user_input
+            ## amount of RAM for server?
+                ## at launch
+                ## max
+        }
+        ## branch
+        case "$auto_mode" in
+            "a") ssf_auto_adv;;
+            "b") ssf_auto_basic;;
+        esac
+        ## call preparation script
+        ssf_auto_apply_config
+        ##
+	}
+	## Run proper configuration routine based on mode
+	case $create_mode in
+		"auto")	  sf_create_auto;;
+		"manual") edit_file="yes"; sf_create_manual;;
+	esac
+	## Populate runDIR with port information
+	srv_port=$( grep 'server-port' server.properties | awk '{ FS = "=" } ; { print $2 }' )
+	echo "$srv_port" > $runDIR/"$worldNAME"/srv_port
+	echo "$srv_port" >> $runDIR/bound.ports.srv
+	rcon_port=$( grep 'rcon.port' server.properties | awk '{ FS = "=" } ; { print $2  }' )
+	echo "$rcon_port" > $runDIR/"$worldNAME"/rcon_port
+	echo "$rcon_port" >> $runDIR/bound.ports.rcon
+    ## mark it as virgin (has not yet been started / generated world )
+    sf_mark_virgin(){
+        echo "This world has never been started and therefore has no minecraft world generated yet."
+        echo "This is marked as virgin until it has been started at least once, so opertions"
+        echo " requiring the minecraft world directory will not run."
+    }
+	sf_mark_virgin > $runDIR/"$worldNAME"/virgin
+    ## set ownership and mode
+    f_permissions_server
+    f_permissions_runfiles
+	## Print completion message
+    f_message "world successfully created: $worldNAME"
+    f_log "world successfully created: $worldNAME"
+    exit 0
+    ##
+    unset n
+    unset exists
+    unset orig_ver
+    unset num_bk_dirs
+	unset srv_port
+	unset rcon_port
+	##
+}
+
+## f_destroy() - remove a server/world
+#
+f_destroy(){
+    ## Just to be sure
+    unset worldNAME
+    unset do_bk
+    ## Set default
+    if [ "$ultBK" = "yes" ];then
+		do_bk="yes"
+    fi
+    ## Parse parameters
+    while [ $# -gt 0 ];do
+		case $1 in
+			"bk")   do_bk="yes";;
+			"nobk") unset do_bk;;
+			*) worldNAME="$1";;
+		esac
+		shift
+    done
+	## worldNAME cannot be empty string
+	if [ -z "$worldNAME" ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## Validate worldname
+    f_validate
+    ## Ensure world is not running
+    f_isrunning
+    if [ "$isrunning" = "yes" ];then
+		f_message "server $worldNAME is running. stop it first"
+		exit 1
+    fi
+    ## MAKE ABSOLUTELY SURE
+    if [ ! "$do_bk" ];then
+		f_message "a backup archive will NOT be made prior to deletion"
+		f_makesure
+		if [ "$go_ahead" = "no" ];then
+			f_message "ABORTED"
+			exit 1
+		fi
+    fi
+    f_message "WORLD WILL BE DELETED: $worldNAME"
+    f_makesure
+    if [ "$go_ahead" = "no" ];then
+		f_message "ABORTED"
+		exit 1
+    fi
+    ## Make backup, if enabled
+    if [ "$do_bk" ] && [ ! -f $runDIR/"$worldNAME"/virgin ];then
+		f_bk
+    fi
+	## Get server and rcon ports
+	srv_port=$( cat $runDIR/"$worldNAME"/srv_port )
+	rcon_port=$( cat $runDIR/"$worldNAME"/rcon_port )
+	## initialize sudo
+	f_initialize_sudo
+    ## Do the damn thing
+    sudo rm -r $srvsDIR/"$worldNAME"
+    sudo rm -r $runDIR/"$worldNAME"
+	## Remove name from bound.names
+	cat $runDIR/bound.names | grep -v "$worldNAME" > $runDIR/bound.names.new
+	mv $runDIR/bound.names.new $runDIR/bound.names
+	## Remove ports from bound.ports.*
+	cat $runDIR/bound.ports.srv | grep -v "$srv_port" > $runDIR/bound.ports.srv.new
+	mv $runDIR/bound.ports.srv.new $runDIR/bound.ports.srv
+	cat $runDIR/bound.ports.rcon | grep -v "$rcon_port" > $runDIR/bound.ports.rcon.new
+	mv $runDIR/bound.ports.rcon.new $runDIR/bound.ports.rcon
+	##
+    f_message "WORLD DELETED: $worldNAME"
+    f_log "WORLD DELETED: $worldNAME"
+    ##
+    unset do_bk
+    ##
+}
+
+## f_import() - creates new server instance from existing world/config
+#
+f_import(){
+    f_message "f_import(): soon..."
+}
+
+## f_list() - lists the currently running servers
+#
+f_list(){
+    ## For all servers (none specified)
+    sf_all_servers(){
+		f_message "the currently running servers are:"
+		ls $runDIR/running | while read line;do
+			srv_port=$( cat $runDIR/"$line"/srv_port )
+			rcon_port=$( cat $runDIR/"$line"/rcon_port )
+			srv_pid=$( cat $runDIR/"$line"/srv_pid )
+			srv_ver=$( cat $runDIR/"$line"/current_version )
+			f_message "    ${line}  server-port:${srv_port}  rcon-port:${rcon_port}  pid:${srv_pid}  version:${srv_ver}"
+			if [ -e $runDIR/"$line"/daemon_pid ];then
+				daemon_pid=$( cat $runDIR/"$line"/daemon_pid )
+				daemon_ops=$( cat $runDIR/"$line"/daemon_ops )
+				f_message "    ${line}    daemon pid:${daemon_pid}   ops{ ${daemon_ops}}"
+			fi
+			unset srv_port
+			unset rcon_port
+			unset srv_pid
+			unset srv_ver
+			unset daemon_pid
+			unset daemon_ops
+		done
+		f_message " "	
+		if [ ! "$onlyrun" ];then
+			f_message "all available servers are:"
+			ls $srvsDIR | while read line;do
+				if [ -e $runDIR/"${line}"/srv_port ];then
+					srv_port=`cat $runDIR/"${line}"/srv_port`
+				fi
+				if [ -e $runDIR/"${line}"/rcon_port ];then
+					rcon_port=`cat $runDIR/"${line}"/rcon_port`
+				fi
+				if [ -e $runDIR/"${line}"/current_version ];then
+					srv_ver=`cat $runDIR/"${line}"/current_version`
+				fi
+				f_message "    ${line}  server-port:${srv_port}  rcon-port:${rcon_port}  version:${srv_ver}"
+				unset srv_port
+				unset srv_ver
+				unset rcon_port
+			done
+		fi
+		exit 0
+    }
+    sf_single_server(){
+		f_validate
+		if [ ! -e $runDIR/"$worldNAME"/srv_port ] || [ ! -e $runDIR/"$worldNAME"/rcon_port ];then
+			f_error "server or rcon port not found: $worldNAME"
+		fi
+		srv_port=$( cat $runDIR/"$worldNAME"/srv_port )
+		rcon_port=$( cat $runDIR/"$worldNAME"/rcon_port )
+		srv_ver=$( cat $runDIR/"$worldNAME"/current_version )
+		ls $runDIR/running | grep "$worldNAME" > /dev/null
+		if [ $? -eq 0 ];then
+			status="UP"
+		else
+			status="DOWN"
+		fi
+		f_message "Server ${worldNAME} is ${status}  server-port:${srv_port}  rcon-port:${rcon_port}  version:${srv_ver}"
+		if [ -e $runDIR/"${worldNAME}"/daemon_pid ];then
+			daemon_pid=$( cat $runDIR/"$worldNAME"/daemon_pid )
+			daemon_ops=$( cat $runDIR/"$worldNAME"/daemon_ops )
+			f_message "    daemon is running: pid:${daemon_pid}  ops{ ${daemon_ops} }"
+		fi
+		exit 0
+    }
+    ## Parse parameters
+    if [ $# -eq 0 ];then
+		sf_all_servers
+	else
+		case $1 in
+			"running") onlyrun="yes"; sf_all_servers  ;;
+			"run") onlyrun="yes"; sf_all_servers ;;
+			*) worldNAME="$1"; sf_single_server ;;
+		esac
+    fi
+    ##
+    unset onlyrun
+    unset srv_port
+    unset rcon_port
+    unset srv_ver
+    unset status
+    unset daemon_pid
+    unset daemon_ops
+    unset line
+    ##
+}
+
+## f_console() - interactive server command console
+#
+f_console(){
+    ## make sure we have an rcon client
+    f_rcon_test
+    ## Must receive an argument
+	if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+	## First argument is valid worldname
+    worldNAME="$1"
+    f_validate
+    ## Ensure server is running
+    f_isrunning
+    if [ "$isrunning" = "no" ];then
+		f_error "server is not running: $worldNAME"
+		exit 1
+	fi
+    ## Get RCON parameters
+    if [ ! -e $runDIR/"$worldNAME"/rcon_port ];then
+		f_error "no rcon port is listed: $worldNAME"
+		exit 1
+    fi
+    rcon_port=`cat $runDIR/"$worldNAME"/rcon_port`
+    if [ ! -e $runDIR/"$worldNAME"/rcon_password ];then
+		f_error "no rcon password is listed: $worldNAME"
+		exit 1
+	fi
+    rcon_pass=`cat $runDIR/"$worldNAME"/rcon_password`
+    ## Print header
+    term_width=`tput cols`
+    banner_width=$(( $term_width - 21 ))
+    echo -n "==[ minectl console ]"
+    n=0
+    while [ $n -lt $banner_width ];do
+		echo -n "="
+		let n++
+    done; echo
+    echo
+    echo ">> connected to [ $worldNAME ] at port [ $rcon_port ]"
+    ## Define console input function
+    sf_console(){
+		echo
+		echo -n "[ minectl ]:$ "
+		read input
+		if [ "$input" = "quit" ] || [ "$input" = "exit" ];then   # Keywords for exiting the console
+			exit 0
+		fi
+		if [ "$input" = "stop" ]; then                   # Don't allow stopping the server this way
+			f_message "don't stop the server this way. use 'minectl stop'"
+			continue
+		fi
+		mcrcon -H localhost -P $rcon_port -p $rcon_pass "$input"
+    }
+    ## Create loop to call sf_console()
+    while [ 1 -gt 0 ]; do
+		sf_console
+    done
+    ##
+    unset n
+    unset term_width
+    unset banner_width
+    unset rcon_port
+    unset rcon_pass
+    ##
+}
+
+## f_srv_command() - Issue single command directly to server
+#
+f_srv_command(){
+    ## make sure we have an rcon client
+    f_rcon_test
+    ## first argument is the server command
+    srvcommand="$1"
+    ## Get RCON parameters
+    if [ ! -e $runDIR/"$worldNAME"/rcon_port ];then
+		f_log "f_srv_command(): no rcon port is listed: $worldNAME"
+		df_log "f_srv_command(): no rcon port is listed: $worldNAME"
+		df_debug "f_srv_command(): no rcon port is listed: $worldNAME"
+    fi
+    rcon_port=`cat $runDIR/"$worldNAME"/rcon_port`
+    if [ ! -e $runDIR/"$worldNAME"/rcon_password ];then
+		f_log "f_srv_command(): no rcon password is listed: $worldNAME"
+		df_log "f_srv_command(): no rcon password is listed: $worldNAME"
+		df_debug "f_srv_command(): no rcon password is listed: $worldNAME"
+    fi
+    rcon_pass=`cat $runDIR/"$worldNAME"/rcon_password`
+    ## Issue command
+    mcrcon -H localhost -P $rcon_port -p $rcon_pass "$srvcommand"
+    ## Clean up
+    unset rcon_port
+    unset rcon_pass
+    unset srvcommand
+    ##
+}
+
+## f_srv_message() - Issue message to server users using '/say' command
+#
+f_srv_message(){
+    ## must have an rcon client
+    f_rcon_test
+    ## First argument must be valid worldname
+    worldNAME="$1"
+    f_validate
+    shift
+    ## Second argument is message
+    srv_message="$@"
+    ## Get rcon parameters
+    rcon_port=`cat $runDIR/"$worldNAME"/rcon_port`
+    rcon_pass=`cat $runDIR/"$worldNAME"/rcon_password`
+    ##
+    mcrcon -H localhost -P $rcon_port -p $rcon_pass "say ${srv_message}"
+    ##
+    unset rcon_port
+    unset rcon_pass
+    unset srv_message
+    ##
+}
+
+## f_sv() - issue the server save command
+#
+f_sv(){
+    ## must have an rcon client
+    f_rcon_test
+    ## Determine rcon parameters
+    rcon_port=`cat $runDIR/"$worldNAME"/rcon_port`
+    rcon_pass=`cat $runDIR/"$worldNAME"/rcon_password`
+    ##
+    mcrcon -H localhost -P $rcon_port -p $rcon_pass "save-all"
+    ##
+    unset rcon_port
+    unset rcon_pass
+    ##
+}
+
+## f_save() - frontend to f_sv() for explicit save commands
+#
+f_save(){
+	## Must  get an argument
+	if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## First argument is a valid worldname
+    worldNAME="$1"
+    f_validate
+    ## Server must be running
+    f_isrunning
+    if [ "$isrunning" = "no" ];then
+		f_error "server must be running: $worldNAME"
+		exit 1
+    fi
+    ##
+    f_sv
+    ##
+    unset isrunning
+    ##
+}
+
+## f_bk() - create a backup archive of a world
+#
+f_bk(){
+    ## Validate backup directories
+    num_bkDIRs=${#bkDIR[*]}
+    n=0
+    while [ $n -lt $num_bkDIRs ];do
+	if [ ! -d ${bkDIR[$n]}/"$worldNAME" ];then
+	    f_error "f_bk(): backup directory does not exist: ${bkDIR[$n]}/$worldNAME"
+		return
+	fi
+	let n++
+    done
+    ## Set timestamp
+    timestamp=`date +%y-%m-%d_%H-%M`
+    ## Create archive
+    cd $srvsDIR/"$worldNAME"
+    tar czf "$worldNAME".${timestamp}.tar.gz "$worldNAME"
+    ## Move to bkDIRs
+    n=0
+    while [ $n -lt $num_bkDIRs ];do
+		cp "$worldNAME".${timestamp}.tar.gz ${bkDIR[$n]}/"$worldNAME"
+		let n++
+    done
+    rm "$worldNAME".${timestamp}.tar.gz
+    ##
+    unset num_bkDIRS
+    unset n
+    unset timestamp
+    ##
+}
+
+## f_backup() - frontend to f_bk() for explicit backup commands
+#
+f_backup(){
+	## Must get worldname argument
+	if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## First argument is valid worldname
+    worldNAME="$1"
+    f_validate
+    ## Determine if server is running (save first, if so)
+    f_isrunning
+    if [ "$isrunning" = "yes" ];then
+		f_sv
+    fi
+    ##
+    f_bk
+    f_message "backup finished"
+    ## Clean up
+    unset isrunning
+    ##
+}
+
+## f_log() - output the server log
+#
+f_showlog(){
+    ## Must have a worldname argument
+    if [ $# -eq 0 ];then
+		f_error "you must specify a worldname"
+		exit 1
+    fi
+    ## Parse
+    worldNAME="$1"
+    shift
+    tail_args="$@"
+    ## Validate
+    f_validate
+    ## Set log file
+    logFILE="$srvsDIR/$worldNAME/logs/latest.log"
+    if [ ! -e $logFILE ];then
+		f_error "log file not found: $logFILE"
+		exit 1
+    fi
+    ## Output
+    tail $tail_args $logFILE
+    ##
+    unset tail_args
+    ##
+}
+
+## f_update() - updates the minecraft server jar
+#
+f_update(){
+	## Must supply an arg
+	if [ $# -lt 1 ];then
+		f_error "must supply an argument. use 'minectl help update' for more info"
+		exit 1
+	fi
+    ## Parse
+    while [ $# -gt 0 ];do
+		case $1 in
+			"-v") new_ver="$2"; shift;;
+			"-l") f_listversions;;
+			*) worldNAME="$1";;
+		esac
+		shift
+    done
+    ## Make sure its not running
+    f_isrunning
+    if [ "$isrunning" = "yes" ];then
+		f_error "server is running - stop it first"
+		exit 1
+    fi
+    ## Determine desired version
+    if [ ! "$new_ver" ];then
+		f_jarversion
+		new_ver=`echo $minejar | cut -d"." -f2-4`
+    fi
+    ## Determine current version
+    current_ver=`cat $runDIR/"$worldNAME"/current_version`
+    ## Make sure
+    f_message "replacing: $current_ver"
+    f_message "  version: $new_ver"
+    f_makesure
+    if [ "$go_ahead" = "no" ];then
+		f_message "ABORTED"
+		exit 0
+    fi
+    ## Remove current symlink
+    cd $srvsDIR/"$worldNAME"
+    rm minecraft_server_"$worldNAME"
+    ln -s $jarsDIR/minecraft_server.$new_ver.jar minecraft_server_"$worldNAME"
+    echo "$new_ver" > $runDIR/"$worldNAME"/current_version
+    f_message "done"
+    ##
+    unset new_ver
+    unset current_ver
+    ##
+}
+
+## f_mp() - generates an overviewer map of a world
+#
+f_mp(){
+    if [ "$1" = "explicit" ];then
+	## Function was not run by the daemon
+		do_daemon_message="no"
+    else
+		do_daemon_message="yes" ## Function was called by minectld
+    fi
+    ## Ensure that overviewer is installed
+    which overviewer.py > /dev/null
+    if [ $? -ne 0 ];then
+		f_error "you must have overviewer.py installed"
+    fi
+    ## Ensure a map isn't already being generated
+    if [ -e $runDIR/"$worldNAME"/map_in_progress ];then
+		f_message "a world map is currently being generated for: $worldNAME"
+		return 1
+    fi
+    ## Check for work and output directories, create if necessary
+    if [ ! -d $map_workDIR/"$worldNAME" ];then
+		mkdir -p $map_workDIR/"$worldNAME"
+	fi
+    if [ ! -d $map_outDIR/"$worldNAME" ];then
+		mkdir -p $map_outDIR/"$worldNAME"
+	fi
+    ## Copy world directory to work dir (with rsync, if available)
+    which rsync > /dev/null
+    if [ $? -eq 0 ];then
+		if [ "$map_use_rsync" = "yes" ];then
+			rsync -a $srvsDIR/"$worldNAME"/"$worldNAME" $map_workDIR/
+		else
+			cp -r $srvsDIR/"$worldNAME"/"$worldNAME" $map_workDIR/
+		fi
+	else
+		cp -r $srvsDIR/"$worldNAME"/"$worldNAME" $map_workDIR/
+	fi
+    ## Log beginning of operation
+    f_log "f_mp(): beginning map rendering for: $worldNAME"
+    ## Create lock file
+    touch $runDIR/"$worldNAME"/map_in_progress
+    ## Call to overviewer.py 
+    overviewer.py -qq $overviewer_args $map_workDIR/"$worldNAME" $map_outDIR/"$worldNAME"
+    ## Log completion of operation
+    f_log "f_mp(): finished map rendering for: $worldNAME"
+    ## Output daemon message, if necessary
+    if [ "$do_daemon_message" = "yes" ];then
+		if [ "$daemon_log" = "yes" ];then
+			df_log "map render finished"
+		fi
+		if [ "$daemon_debug" = "yes" ];then
+			df_debug "map render finished - counter:$counter"
+		fi
+		f_srv_command "/say minectl: map done"
+    fi
+    ## Kill lock file
+    rm $runDIR/"$worldNAME"/map_in_progress
+    ## Run a script after generation completes
+    #    Define script in config file
+    if [ "$do_post_map" = "yes" ];then
+		eval $post_map_cmd
+    fi
+    ##
+}
+
+## f_map() - frontend to f_mp() for explicit map creation commands
+#
+f_map(){
+	## Must get worldname argument
+	if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+    ## First argument is valid worldname
+    worldNAME="$1"
+    f_validate
+    ##
+    f_mp explicit
+    ##
+}
+
+## f_check() - Check to ensure the server is running
+#
+f_check(){
+    ## Ensure pid file exists, if so, get value
+    if [ -e $runDIR/"$worldNAME"/srv_pid ];then
+		srv_pid=`cat $runDIR/"$worldNAME"/srv_pid`
+    else
+		f_error "f_check(): no srv_pid file found: $worldNAME"
+    fi
+    ## Search process list
+    ps axww | grep $srv_pid | grep -v "grep" > /dev/null
+    if [ $? -ne 0 ];then
+		f_log "SERVER HAS CRASHED"
+		df_log "SERVER HAS CRASHED"
+		df_debug "SERVER HAS CRASHED"
+		eval "$checkCMD $worldNAME"
+		exit 2
+    else
+		df_debug "df_check(): looks good"
+    fi
+    ##
+    unset srv_pid
+    ##
+}
+
+## f_daemon_control() - Control a minectld daemon from command line
+#
+f_daemon_control(){
+    ## Start a daemon attached to a particular world
+    df_start(){
+		## Must get a worldname
+		if [ $# -lt 1 ];then
+			f_error "must supply a worldname argument"
+			exit 1
+		fi
+		## First arg must be a valid worldname
+		worldNAME="$1"
+		shift
+		f_validate
+		## World should be running
+		f_isrunning
+		if [ "$isrunning" = "no" ];then
+			f_error "world must be running: $worldNAME"
+			exit 1
+		fi
+		## Only one daemon running
+		if [ -e $runDIR/"$worldNAME"/daemon_pid ];then
+			daemon_pid=`cat $runDIR/"$worldNAME"/daemon_pid`
+			ps axww | grep $daemon_pid | grep -v "grep" > /dev/null
+			if [ $? -ne 0 ];then
+				f_error "a daemon is listed as running but cannot be found: $worldNAME $daemon_pid"
+			else
+				f_message "a daemon is already running - stop it first: pid:${daemon_pid}"
+				exit 1
+			fi
+		fi
+		## Get default daemon operations
+		if [ "$defaultALL" = "yes" ];then
+			do_check="yes"
+			do_save="yes"
+			do_bk="yes"
+			do_map="yes"
+		fi
+		if [ "$defaultCHECK" = "yes" ];then
+			do_check="yes"
+		fi
+		if [ "$defaultSAVE" = "yes" ];then
+			do_save="yes"
+		fi
+		if [ "$defaultBK" = "yes" ];then
+			do_bk="yes"
+		fi
+		if [ "$defaultMAP" = "yes" ];then
+			do_map="yes"
+		fi
+		## Process any overrides from commandline
+		while [ $# -gt 0 ];do
+			case $1 in
+				"all")     do_check="yes"
+						   do_save="yes"
+						   do_bk="yes"
+						   do_map="yes" ;;
+				"check")   do_check="yes" ;;
+				"nocheck") unset do_check ;;
+				"save")    do_save="yes" ;;
+				"nosave")  unset do_save ;;
+				"bk")      do_bk="yes" ;;
+				"nobk")    unset do_bk ;;
+				"map")     do_map="yes" ;;
+				"nomap")   unset do_map ;;
+			esac
+			shift
+		done
+		## Build daemon arguments list
+		if [ "$do_check" ];then
+			daemon_ops+="check "
+		fi
+		if [ "$do_save" ];then
+			daemon_ops+="save "
+		fi
+		if [ "$do_bk" ];then
+			daemon_ops+="bk "
+		fi
+		if [ "$do_map" ];then
+			daemon_ops+="map "
+		fi
+		## Launch daemon
+		$skripDIR/minectld "$worldNAME" $daemon_ops &
+		##
+	} # [ END - df_start() ]
+    ## Stop the daemon attached to a particular world
+    df_stop(){
+		## Must get arg
+		if [ $# -lt 1 ];then
+			f_error "must supply a worldname argument"
+			exit 1
+		fi
+		## Arg is worldNAME
+		worldNAME="$1"
+		f_validate
+		## Ensure daemon is running
+		if [ -e $runDIR/"$worldNAME"/daemon_pid ];then
+			daemon_pid=`cat $runDIR/"$worldNAME"/daemon_pid`
+		else
+			f_error "no daemon running: $worldNAME"
+			exit 1
+		fi
+		ps axww | grep "$daemon_pid" | grep -v "grep" > /dev/null
+		if [ $? -ne 0 ];then
+			f_error_crit "df_stop(): daemon listed as running but cannot be found: $worldNAME pid:${daemon_pid}"
+			exit 1
+		fi
+		kill -SIGTERM $daemon_pid
+		##
+	}
+    ## Restart the daemon attached to a particular world
+    df_restart(){
+		## Must get worldname
+		if [ $# -lt 1 ];then
+			f_error "must supply a worldname argument"
+			exit 1
+		fi
+		worldNAME="$1"
+		## validate
+		f_validate
+		##
+		f_message "stopping daemon"
+		df_stop "$worldNAME"
+		## Wait for daemon to stop
+		while [ -e $runDIR/"$worldNAME"/daemon_pid ];do
+	    sleep 0.2
+	    echo -n "."
+		done
+		echo " done"
+		f_message "starting daemon..."
+		df_start "$worldNAME"
+		echo " done"
+		##
+    }
+    ## Print status of daemon attached to a a particular world
+    df_status(){
+		## Must get an arg
+		if [ $# -lt 1 ];then
+			f_error "must supply a worldname argument"
+			exit 1
+		fi
+		## First arg is worldNAME
+		worldNAME="$1"
+		shift
+		f_validate
+		## See if server is running
+		f_isrunning
+		if [ "$isrunning" = "no" ];then
+			f_message "server isn't running: $worldNAME"
+			exit 1
+		fi
+		## See if daemon is running
+		if [ -e $runDIR/"$worldNAME"/daemon_pid ];then
+			daemon_pid=`cat $runDIR/"$worldNAME"/daemon_pid`
+		else
+			f_message "no daemon running: $worldNAME"
+			exit 0
+		fi
+		## Determine if daemon_pid listed is running
+		ps axww | grep "$daemon_pid" | grep -v "grep" > /dev/null
+		if [ $? -ne 0 ];then
+			f_error "daemon is listed as running but cannot be found: $worldNAME pid:${daemon_pid}"
+		fi
+		## Get daemon operations
+		daemon_ops=`cat $runDIR/"$worldNAME"/daemon_ops`
+		## Output
+		f_message "daemon running for ${worldNAME}: pid:${daemon_pid}"
+		f_message "daemon operations: $daemon_ops"
+		exit 0
+		##
+    }
+	## Cannot get empty argument list
+	if [ $# -lt 1 ];then
+		f_error "must supply a daemon operation argument"
+		exit 1
+	fi
+    ## First argument must be daemon operation
+    d_operation="$1"
+    shift
+    d_args="$@"
+    ## Split to operation, pass other args
+    case $d_operation in
+		"start")   df_start $d_args ;;
+		"stop")    df_stop $d_args ;;
+		"restart") df_restart $d_args ;;
+		"status")  df_status $d_args ;;
+		*) f_error "invalid operation: $d_operation" ;;
+    esac
+    ##
+    unset d_args
+    unset daemon_pid
+    unset daemon_ops
+    ##
+}
+
+## f_cleanup() - Removes stale runtime files after a server crash
+#
+f_cleanup(){
+    ## Must have worldname
+    if [ $# -eq 0 ];then
+		f_error "you must supply a worldname argument"
+		exit 1
+    fi
+    worldNAME="$1"
+    f_validate
+    ## Must not be running
+    f_isrunning cleanup
+    if [ "$isrunning" = "yes" ];then
+		f_error "cannot use against a running server"
+    fi
+    ## Make sure
+    f_message "this will destroy files (read the help first)"
+    f_makesure
+    if [ "$go_ahead" = "no" ];then
+		f_message "ABORTED"
+		exit 0
+    fi
+    ## Clean up files
+    rm $runDIR/running/"$worldNAME"
+    rm $runDIR/"$worldNAME"/srv_pid
+    rm $runDIR/"$worldNAME"/launch_time
+    rm $runDIR/"$worldNAME"/daemon_pid
+    rm $runDIR/"$worldNAME"/daemon_ops
+    ##
+    f_message "done"
+    ##
+}
+
+## f_get_seed() - prints the seed of the specified world
+#
+f_get_seed(){
+	## must get arg
+	if [ $# -lt 1 ];then
+		f_error "must supply a worldname argument"
+		exit 1
+	fi
+	## arg is the world name
+	worldNAME="$1"
+	## world must exist
+	f_validate
+	## check for file in runDIR, if so use it
+	if [ -f $runDIR/"$worldNAME"/seed ];then
+		seed=$( cat $runDIR/"$worldNAME"/seed )
+		f_message "seed: $seed"
+		exit 0
+	fi
+	## world must be running
+	f_isrunning
+	if [ "$isrunning" = "no" ];then
+		f_error "world must be running"
+		exit 1
+	fi
+	## issue /seed command
+	seed=$( f_srv_command "seed" | cut -d' ' -f2  )
+	## print to output
+	f_message "seed: $seed"
+	## save to file in runDIR
+	echo "$seed" > $runDIR/"$worldNAME"/seed
+	##
+}
+
+##[ GROND ]

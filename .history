@@ -1,0 +1,327 @@
+------------------------------------------------------------------------
+r346 | colvin | 2015-05-30 11:26:26 -0400 (Sat, 30 May 2015) | 5 lines
+
+/src/bash/minectl
+
+o brought in the seeds file, cause where else will it go
+
+
+------------------------------------------------------------------------
+r345 | colvin | 2015-05-30 11:18:33 -0400 (Sat, 30 May 2015) | 5 lines
+
+/src/bash/minectl
+
+o minor improvements to multiple components
+
+
+------------------------------------------------------------------------
+r317 | colvin | 2015-05-16 18:21:00 -0400 (Sat, 16 May 2015) | 6 lines
+
+/src/bash/minectl
+
+o added sync-map, to send the world map over to a web server
+o fixed regexp failing due to '/' in motd string in server.properties
+
+
+------------------------------------------------------------------------
+r52 | colvin | 2014-10-12 16:30:30 -0400 (Sun, 12 Oct 2014) | 8 lines
+
+/src/bash/minectl
+
+o updated LICENSE in minectl-installer
+o updated other documentation in minectl-installer
+o moved POSTINSTALL to distribution/doc/
+o added copyright info to all minectl files
+
+
+------------------------------------------------------------------------
+r51 | colvin | 2014-10-12 15:29:58 -0400 (Sun, 12 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o fixed failure to set srv/rcon ports in auto/adv create mode
+
+
+------------------------------------------------------------------------
+r50 | colvin | 2014-10-12 15:02:58 -0400 (Sun, 12 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o added removal of mcrcon to uninstaller
+
+
+------------------------------------------------------------------------
+r49 | colvin | 2014-10-12 14:05:58 -0400 (Sun, 12 Oct 2014) | 14 lines
+
+/src/bash/minectl/minectl/head
+
+o added, then removed op/deop/ban/unban operations
+    o best done through the 'console' operation
+
+o fixed bugs:
+    o incorrect display of version in single-world 'list' operation
+    o use of depricated $MINESRV_BASE in 'log' operation
+    o wrapped certain auto-mode questions in loop to avoid null values
+    o fixed typo in f_jar_test()
+
+o replaced backtick (`) syntax in f_list_versions() with $() syntax
+
+
+------------------------------------------------------------------------
+r48 | colvin | 2014-10-12 10:35:50 -0400 (Sun, 12 Oct 2014) | 6 lines
+
+/src/bash/minectl
+
+o bumped minectl/head to 1.1.0b (beta release version)
+o bumped minectl-installer/head to 0.4.0b (beta release version)
+
+
+------------------------------------------------------------------------
+r47 | colvin | 2014-10-11 18:53:20 -0400 (Sat, 11 Oct 2014) | 7 lines
+
+/src/bash/minectl/minect/head
+
+o added f_jar_check
+    o makes sure that Minecraft server jar files exist
+        prior to creating a server
+
+
+------------------------------------------------------------------------
+r46 | colvin | 2014-10-11 18:42:54 -0400 (Sat, 11 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o another update to POSTINSTALL
+
+
+------------------------------------------------------------------------
+r45 | colvin | 2014-10-11 18:39:17 -0400 (Sat, 11 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o updated POSTINSTALL
+
+
+------------------------------------------------------------------------
+r44 | colvin | 2014-10-11 18:35:07 -0400 (Sat, 11 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o preening
+
+
+------------------------------------------------------------------------
+r43 | colvin | 2014-10-11 17:52:25 -0400 (Sat, 11 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o added 'seed' command to get world seed
+
+
+------------------------------------------------------------------------
+r42 | colvin | 2014-10-11 10:38:08 -0400 (Sat, 11 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o removed minectl from distribution
+
+
+------------------------------------------------------------------------
+r41 | colvin | 2014-10-11 10:36:46 -0400 (Sat, 11 Oct 2014) | 6 lines
+
+/src/bash/minectl/minectl/head
+
+o make libminectl honor configured creation mode
+o removed duplicate create mode statements from config file
+
+
+------------------------------------------------------------------------
+r40 | colvin | 2014-10-11 10:28:05 -0400 (Sat, 11 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o add sudo to 'destroy'
+
+
+------------------------------------------------------------------------
+r39 | colvin | 2014-10-10 20:43:28 -0400 (Fri, 10 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o updated minectld with new config file path method
+
+
+------------------------------------------------------------------------
+r38 | colvin | 2014-10-10 20:26:17 -0400 (Fri, 10 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o added svn:executable to minectl-installer
+
+
+------------------------------------------------------------------------
+r37 | colvin | 2014-10-10 20:18:17 -0400 (Fri, 10 Oct 2014) | 6 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o added uninstall
+o fixes in minectl-installer
+
+
+------------------------------------------------------------------------
+r35 | colvin | 2014-10-10 18:56:31 -0400 (Fri, 10 Oct 2014) | 8 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o fixed installer
+	o changed erroneous chmod's to chown's
+	o fixed sed
+		o used '/' as delimiter when matching filepaths
+
+
+------------------------------------------------------------------------
+r32 | colvin | 2014-10-10 08:16:57 -0400 (Fri, 10 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer/head
+
+o exported release-candidate minectl with auto create mode
+
+
+------------------------------------------------------------------------
+r31 | colvin | 2014-10-10 08:14:19 -0400 (Fri, 10 Oct 2014) | 9 lines
+
+/src/bash/minectl/minectl/head
+
+o release-candidate auto create mode
+    o seems to work
+    o needs further testing
+
+o added marking world as virgin until it has been started once
+
+
+------------------------------------------------------------------------
+r30 | colvin | 2014-10-09 22:44:04 -0400 (Thu, 09 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer
+
+o export beta create mode minectl to distribution
+
+
+------------------------------------------------------------------------
+r29 | colvin | 2014-10-09 22:40:49 -0400 (Thu, 09 Oct 2014) | 5 lines
+
+/src/bash/minectl/mineclt/head
+
+o beta auto create mode
+
+
+------------------------------------------------------------------------
+r28 | colvin | 2014-10-09 20:44:49 -0400 (Thu, 09 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl-installer
+
+o updated server.properties file in srvskel/skel for 1.8 values
+
+
+------------------------------------------------------------------------
+r27 | colvin | 2014-10-08 23:31:57 -0400 (Wed, 08 Oct 2014) | 8 lines
+
+/src/bash/minectl/minectl/head
+
+o basic framework for auto creation mode
+o change to f_get_input
+
+o config file is production (unsanitary)
+
+
+------------------------------------------------------------------------
+r26 | colvin | 2014-10-08 19:23:11 -0400 (Wed, 08 Oct 2014) | 6 lines
+
+/src/bash/minectl/minectl/head
+
+o fixed sourcing minectl.conf
+o fixed stupid error '{a'
+
+
+------------------------------------------------------------------------
+r25 | colvin | 2014-10-07 08:13:34 -0400 (Tue, 07 Oct 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o added BUG
+
+
+------------------------------------------------------------------------
+r11 | colvin | 2014-09-29 08:15:18 -0400 (Mon, 29 Sep 2014) | 7 lines
+
+/src/bash/minectl
+
+o minor output formatting on minectl-installer/head
+o removed outdated VERSION file from minectl-installer/head
+o updated TODO in minectl/head
+
+
+------------------------------------------------------------------------
+r10 | colvin | 2014-09-28 23:46:15 -0400 (Sun, 28 Sep 2014) | 6 lines
+
+/src/bash/minectl/minectl
+
+o same as last commit
+o forgot to remove restricted.names from minectl/minectl
+
+
+------------------------------------------------------------------------
+r9 | colvin | 2014-09-28 23:45:21 -0400 (Sun, 28 Sep 2014) | 6 lines
+
+/src/bash/minectl/minectl-installer
+
+o restricted.names is now populated with runskel (in last commit)
+o forgot to add names to included restricted.names
+
+
+------------------------------------------------------------------------
+r8 | colvin | 2014-09-28 23:42:21 -0400 (Sun, 28 Sep 2014) | 15 lines
+
+/src/bash/minectl
+
+o huge update to minectl and installer
+
+o completely removed use of environment variables
+o config file properly populated by installer
+o config file must now be in minectl_home directory
+    o remove minectl_conf entirely
+o completely rewrote the installer
+o changes to installer distribution structure
+o improved permissions handling
+o improved checks for required programs
+o various preening
+
+
+------------------------------------------------------------------------
+r7 | colvin | 2014-09-28 19:30:22 -0400 (Sun, 28 Sep 2014) | 6 lines
+
+/src/bash/minectl/minectl-installer
+
+o added correct permission modes for runfiles in head
+o typo in 0.2.2 release
+
+
+------------------------------------------------------------------------
+r6 | colvin | 2014-09-28 14:08:35 -0400 (Sun, 28 Sep 2014) | 5 lines
+
+/src/bash/minectl/minectl/head
+
+o added check to ensure that a valid worlname is supplied to subcommands when necessary
+
+
+------------------------------------------------------------------------
+r1 | colvin | 2014-09-21 01:56:34 -0400 (Sun, 21 Sep 2014) | 7 lines
+
+/
+
+initial import
+
+o clone of self-hosted svn.grond.us
+
+
+------------------------------------------------------------------------

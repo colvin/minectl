@@ -1,0 +1,23 @@
+## README
+
+## GROND 2014
+
+** I did not write mcrcon **
+** Check the README in the src for more info **
+
+
+included are binaries for i386 and amd64, compiled on FreeBSD 10.0-RELEASE
+
+if you do not want the included binaries, the source is included. the src
+ directory contains the mcrcon.c file, as well as the original source archive.
+ compiling mcrcon requires GCC. instructions are found in the src/COMPILING.txt file.
+
+if you want to use the included binaries, move the appropriate binary for your 
+ architecture to a directory in your $PATH, such as:
+
+  # mv ./mcrcon_amd64 /usr/local/bin/mcrcon
+or
+  # mv ./mcrcon_i386  /usr/local/bin/mcrcon
+
+
+** mcrcon is currently required by minectl **

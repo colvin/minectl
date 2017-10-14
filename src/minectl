@@ -1,0 +1,86 @@
+#!/usr/local/bin/bash
+#
+## minectl/minectl - front-end
+
+## Copyright (c) 2014, Colvin Wellborn (GROND)
+## see the LICENSE included in the distribution for terms
+
+# v0.9     { 11/11/13
+# v0.9.1   { 04/08/14
+# v0.9.2   { 04/15/14
+# v0.9.3   { 04/16/14
+# v0.9.4   { 04/20/14
+# v0.9.4_1 { 04/21/14
+# v0.9.5   { 04/21/14
+# v0.9.6   { 04/22/14
+# v0.9.7   { 04/24/14
+# v0.9.8   { 04/26/14
+# v0.9.9   { 04/29/14
+# v0.9.9_1 { 04/29/14
+# v1.0.0   ( 04/29/14
+# v1.0.0_1 { 04/29/14
+# v1.0.1   { 04/30/14
+# v1.0.1_1 { 05/05/14
+# v1.0.1_2 { 05/06/14
+# v1.0.1_3 { 05/07/14
+# v1.0.2   { 05/07/14
+# v1.0.3   { 05/08/14
+# v1.0.4   { 05/09/14
+# v1.0.5   { 05/15/14
+# v1.0.6   { 09/05/14
+# v1.0.7   { 09/09/14 : (phony: switching to even>release/odd>devel)
+# v1.0.9   { 09/28/14 : streamline
+# v1.1.0b  { 10/12/14 : release beta
+# v1.1.0rc { 10/12/14 : release candidate v1.1.0
+version="1.1.0rc"
+if [ "$1" = "--version" ];then echo "$version"; exit 0; fi
+
+## get config file path
+config_path=$( dirname $( realpath $( which minectl )))
+## fail if cannot find config
+if [ ! -f "$config_path"/minectl.conf ];then
+    echo "[ minectl ]:[ ERROR ]: cannot find config file: $config_path/minectl.conf"
+    exit 1
+fi
+## source config
+source "$config_path"/minectl.conf
+## source libraries
+source $skripDIR/libminectl
+source $skripDIR/libminectl-help
+
+## if no arguments
+if [ $# -eq 0 ];then
+    ## print help
+    f_help usage
+else
+    ## first argument is the subcommand
+    operation="$1"
+    shift
+    ## everything else is passed as argument to subcommand
+    op_params="$@"
+fi
+
+## spawn appropriate subcommand module
+case $operation in
+    "help")    f_help $op_params;;
+    "start")   f_start $op_params;;
+    "stop")    f_stop $op_params;;
+    "restart") f_restart $op_params;;
+    "create")  f_create $op_params;;
+    "destroy") f_destroy $op_params;;
+    "list")    f_list $op_params;;
+    "console") f_console $op_params;;
+    "log")     f_showlog $op_params;;
+    "message") f_srv_message $op_params;;
+    "update")  f_update $op_params;;
+    "save")    f_save $op_params;;
+    "backup")  f_backup $op_params;;
+    "map")     f_map $op_params;;
+    "daemon")  f_daemon_control $op_params;;
+    "cleanup") f_cleanup $op_params;;
+	"seed")    f_get_seed $op_params;;
+    *)         f_error "minectl: invalid subcommand: $operation";;
+esac
+##
+exit 0
+##

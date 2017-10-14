@@ -1,0 +1,85 @@
+## README - minectl-installer
+
+Copyright:
+  Colvin Wellborn (GROND) 2014
+  All Rights Reserved
+
+License:
+  See LICENSE
+  The use of this installer, and the minectl program, implies
+    the acceptance of the included license.
+
+Disclaimer:
+  I, the author, have no affiliation with Mojang AB of any sort
+  except as a fan and user of their Minecraft game product.
+  For more information on Minecraft and related licenses,
+   contact Mojang AB.
+
+##
+
+this is the installer for the minectl script.
+
+minectl is a script written in bash to manage Minecraft servers.
+
+minectl was written on FreeBSD 10.0-RELEASE, specifically for the
+ FreeBSD platform. at the moment, minectl will only work on FreeBSD.
+ later releases may include support for GNU/Linux or other UNIX-type
+ systems.
+
+the minectl script can create, destroy, start, stop, and restart
+ Minecraft servers, running them as an unprivileged user. it can
+ also create backups, offer a command console, update server
+ java jar archive versions, and (if enabled and correctly set up)
+ use the Minecraft-Overviewer program to generate web-viewable
+ maps of your world. it also includes a daemon, minectld, that
+ can be automatically launched alongside your world to perform
+ several periodic automatic functions, such as checking that your
+ server is still running, issuing the save command to the server,
+ creating backup archives (tar.gz), and generating maps.
+
+the script relies upon as few dependencies as possible, but there
+ are a few. of course, running a Minecraft server requires java.
+ bash is also required, which does not come by default with FreeBSD,
+ and the same goes with sudo.
+ GCC is also required to compile the RCON client, described
+ below. if using the Minecraft-Overviewer program to generate maps,
+ there are several other dependencies. check with that program's
+ documentation for the necessary dependencies, some of which are
+ listed in the ./distribution/doc/depends.txt file.
+
+included in the minectl distribution is the mcrcon RCON client.
+ an RCON client is required for minectl. the mcrcon client is
+ currently a statically-required RCON client, although I do have
+ plans to allow for any desired RCON client in the future.
+ mcrcon was written by tiiffi, (NOT ME). the license and other
+ information can be found in the mcrcon directory included in
+ this distribution. source code for mcrcon is included with this
+ distribution, as well as amd64 and i386 binaries for FreeBSD,
+ compiled by me on FreeBSD 10.0-RELEASE.
+
+minectl also has support for generating maps of your worlds using the
+ awesome Minecraft-Overviewer program. this program is not included
+ in the minectl distribution, and the minectl configuration will
+ have all use of it disabled by default. if you want to use it, you
+ can check it out at <http://overviewer.org>. minectl has a explicit
+ command for calling overviewer.py to generate a map for a world, as
+ well as supporting periodic map generation through the minectld
+ daemon.
+
+########################################################################
+
+this is my first actual release-quality program, and the creation of it
+ was as much for the project as for the end result. as such, i
+ would love it if i could get as much feedback as possible. this includes
+ bug reports, suggestions, criticisms, and any other information about
+ the general quality of the design and implementation of minectl.
+ specifically, i would like feedback on better ways to implement parts
+ of the script, and assessments of the general safety and security of it.
+ 
+hit me up at my email:
+
+ GRONDnet@gmail.com
+
+Thanks!
+
+##[ GROND ]

@@ -1,0 +1,226 @@
+#!/usr/local/bin/bash
+#
+## minectl/minectld - the minectl daemon
+
+## Copyright (c) 2014, Colvin Wellborn (GROND)
+## see the LICENSE included in the distribution for terms
+
+## find config file
+skrip_dir=$( dirname $( realpath $( which minectl )))
+
+## source configs
+source $skrip_dir/minectl.conf
+source $skripDIR/libminectl
+
+pid=$$
+
+## Turn on debugging if enabled in configuration
+if [ "$daemon_debug" = "yes" ];then
+    debug="yes"
+    echo > $debugFILE
+    df_debug "STARTED `date` pid:$pid"
+fi
+## Turn on logging if enabled in configuration
+if [ "$daemon_log" = "yes" ];then
+    logging="yes"
+fi
+
+## Stop function
+df_stop(){
+    if [ "$debug" ];then df_debug "SIGTERM - exiting: $worldNAME $pid"; fi
+    if [ "$logging" ];then df_log "SIGTERM - exiting: $worldNAME $pid"; fi
+    ## Remove pid file
+    rm $runDIR/"$worldNAME"/daemon_ops
+    rm $runDIR/"$worldNAME"/daemon_pid
+    exit 0
+}
+
+## Define signal trap
+trap 'df_stop' TERM
+
+## Get worldname
+worldNAME="$1"
+shift
+
+## Determine operations
+if [ "$defaultALL" = "yes" ];then
+    do_check="yes"
+    do_save="yes"
+    do_bk="yes"
+    do_map="yes"
+else
+    if [ "$defaultCHECK" = "yes" ];then
+		do_check="yes"
+	fi
+    if [ "$defaultSAVE" = "yes" ];then
+		do_save="yes"
+	fi
+    if [ "$defaultBK" = "yes" ];then
+		do_bk="yes"
+	fi
+    if [ "$defaultMAP" = "yes" ];then
+		do_map="yes"
+	fi
+fi
+while [ $# -gt 0 ];do
+    case $1 in
+	"log")     do_log="yes";;
+	"nolog")   unset do_log;;
+	"check")   do_check="yes";;
+	"nocheck") unset do_check;;
+	"save")    do_save="yes";;
+	"nosave")  unset do_save;;
+	"bk")      do_bk="yes";;
+	"nobk")    unset do_bk;;
+	"map")     do_map="yes";;
+	"nomap")   unset do_map;;
+    esac
+    if [ "$debug" ];then
+		df_debug "ARGUMENT: $1"
+	fi
+    shift
+done
+
+## Print operations to debug file
+f_debug_operations(){
+	df_debug "worldname: $worldNAME"
+	df_debug "base daemon sleep time: $timeBASE"
+	if [ "$do_log" ];then
+		df_debug "logging enabled"
+	fi
+	if [ "$do_check" ];then
+		df_debug "check enabled"
+		df_debug "check duration:  $timeCHECK"
+	fi
+	if [ "$do_save" ];then
+		df_debug "save enabled"
+		df_debug "save duration:   $timeSAVE"
+	fi
+	if [ "$do_bk" ];then
+		df_debug "backup enabled"
+		df_debug "backup duration: $timeBK"
+	fi
+	if [ "$do_map" ];then
+		df_debug "map enabled"
+		df_debug "map duration:    $timeMAP"
+	fi
+}
+if [ "$debug" ];then f_debug_operations; fi
+
+## Build operations list
+if [ "$do_check" ];then
+    daemon_ops+="check "
+    op_times+="check:${timeCHECK}  "
+fi
+if [ "$do_save" ];then
+    daemon_ops+="save "
+    op_times+="save:${timeSAVE}  "
+fi
+if [ "$do_bk" ];then
+    daemon_ops+="bk "
+    op_times+="bk:${timeBK}  "
+fi
+if [ "$do_map" ];then
+    daemon_ops+="map "
+    op_times+="map:${timeMAP}  "
+fi
+
+## Print initialization info to log file
+f_log_initialized(){
+	df_log "STARTED - worldname:${worldNAME} pid:${pid}"
+    df_log "operations: $daemon_ops"
+    df_log "times - $op_times"
+    
+}
+if [ "$logging" ];then f_log_initialized; fi
+
+## Send pid to runDIR
+echo "$pid" > $runDIR/"$worldNAME"/daemon_pid
+## Send operations list to runDIR
+echo "$op_times" > $runDIR/"$worldNAME"/daemon_ops
+
+## Determine maximum counter
+max_duration=0
+if [ "$do_check" ];then
+    if [ $timeCHECK -gt $max_duration ];then
+		max_duration=$timeCHECK
+	fi
+fi
+if [ "$do_save" ];then
+    if [ $timeSAVE -gt $max_duration ];then
+		max_duration=$timeSAVE
+	fi
+fi
+if [ "$do_bk" ];then
+    if [ $timeBK -gt $max_duration ];then
+		max_duration=$timeBK
+	fi
+fi
+if [ "$do_map" ];then
+    if [ $timeMAP -gt $max_duration ];then
+		max_duration=$timeMAP
+	fi
+fi
+if [ "$debug" ];then df_debug "max duration set: $max_duration"; fi
+    
+
+## Set initial counter
+counter=0
+if [ "$debug" ]; then df_debug "counter initialized at zero"; fi
+
+## MAIN LOOP ##########################################################
+while :
+ do
+    ## Reset to zero if beyond max counter
+    if [ $counter -ge $max_duration ];then
+		counter=0
+    fi
+    ## Sleep
+    sleep $timeBASE
+    ## Update counter
+    counter=$(( $counter + $timeBASE ))
+    ## CHECK
+    if [ "$do_check" ];then
+		if [ $(( $counter % $timeCHECK )) -eq 0 ];then
+			#if [ "$logging" ];then df_log "check routine run"; fi
+			if [ "$debug" ];then df_debug "check routine run - counter:$counter"; fi
+			f_check
+		fi
+    fi
+    if [ "$do_save" ];then
+		if [ $(( $counter % $timeSAVE )) -eq 0 ];then
+			if [ "$logging" ];then df_log "save routine run"; fi
+			if [ "$debug" ];then df_debug "save routine run - counter:$counter"; fi
+			f_srv_command "/say minectl: autosaving..."
+			f_sv
+		fi
+    fi
+    if [ "$do_bk" ];then
+		if [ $(( $counter % $timeBK )) -eq 0 ];then
+			if [ "$logging" ];then df_log "backup routine run"; fi
+			if [ "$debug" ];then df_debug "backup routine run - counter:$counter"; fi	    
+			sleep 2 ## Make sure save command completes first
+			f_srv_command "/say minectl: generating backup..."
+			f_bk
+			f_srv_command "/say minectl: backup done"
+		fi
+    fi
+    if [ "$do_map" ];then
+		if [ $(( $counter % $timeMAP )) -eq 0 ];then
+			if [ "$logging" ];then df_log "Map routine run"; fi
+			if [ "$debug" ];then df_debug "Map routine run - counter:$counter"; fi
+			if [ -e $runDIR/"$worldNAME"/map_in_progress ];then
+				if [ "$logging" ];then df_log "Map render is still in progress"; fi
+				if [ "$debug" ];then df_debug "Map render is still in progress - counter:$counter"; fi
+				f_srv_command "/say minectl: Map rendering is still in progress..."
+				continue
+			fi
+			f_srv_command "/say minectl: Generating Map Rendering..."
+			f_mp &
+		fi
+    fi
+done
+
+##
+exit 0
+##

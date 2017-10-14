@@ -1,0 +1,288 @@
+#!/usr/local/bin/bash
+#
+## minectl-installer - installs the minectl program
+
+## Copyright (c) 2014, Colvin Wellborn (GROND)
+## see the LICENSE included in the distribution for terms
+
+# v0.1     { 04/15/14
+# v0.1.1   { 04/15/14
+# v0.1.2   { 04/20/14
+# v0.1.3   { 04/21/14
+# v0.1.4   { 04/29/14
+# v0.1.5   { 04/29/14
+# v0.1.6   { 04/29/14
+# v0.1.7   { 04/30/14
+# v0.1.8   { 04/30/14
+# v0.1.9   { 04/30/14
+# v0.1.10  { 05/05/14
+# v0.2.0   { 05/05/14
+# v0.2.1   { 05/05/14
+# v0.2.1_1 { 05/09/14
+# v0.2.2   { 09/17/14
+# v0.3.1   { 09/28/14 - major revision
+# v0.3.1_1 { 10/10/14
+# v0.4.0b  { 10/12/14
+# v0.4.0rc { 10/12/14
+# v0.5     { 2016-01-18 -- major restructuring/new repo
+version="0.5"
+##
+if [ "$1" = "--version" ];then echo $version; exit 0; fi
+##
+
+## print banner
+term_width=$( tput cols )
+banner=$( n=0; while [ $n -lt $term_width ];do echo -n "="; let n++; done; echo )
+echo $banner
+echo " minectl installer - GROND 2014"
+echo $banner
+echo " the use of this program implies acceptance of the included LICENSE"
+echo $banner
+echo
+
+## check for base requirements
+f_initial_check(){
+	## must run as root
+	if [ $UID -ne 0 ]; then
+		echo "installer requires root privileges"
+		fail="yes"
+	fi
+	## detect operating system
+	os=`uname`
+	if [ "$os" != "FreeBSD" ];then
+		echo "at this time, minectl is only for FreeBSD"
+		fail="yes"
+	fi
+	## must have bash
+	which bash > /dev/null
+	if [ $? -ne 0 ];then
+		echo "minectl, and installer, requires bash"
+		fail="yes"
+	fi
+	##
+}
+
+## set up paths
+f_get_paths(){
+    echo "setting minectl directories: "
+	## get skripDIR - where minectl script lives
+	echo -n "location of minectl script: [/opt/minectl] "
+	read minectl_home
+	## if empty, use default
+	if [ -z "$minectl_home" ];then minectl_home="/opt/minectl"; fi
+	## get srvBASE - where the minecraft servers live
+	echo -n "location of minectl servers: [/srv/minectl] "
+	read minesrv_base
+	## if empty, use default
+	if [ -z "$minesrv_base" ];then minesrv_base="/srv/minectl"; fi
+	## get runDIR - where minectl runtime files live
+	echo -n "location of runtime files: [/var/minectl] "
+	read minerun_base
+	## if empty, use default
+	if [ -z "$minerun_base" ];then minerun_base="/var/minectl"; fi
+	##
+	echo
+	##
+}
+
+## get minecraft server user information
+f_get_user(){
+	echo "minectl runs the minecraft servers as a dedicated unprivileged user"
+	echo -n "name of unprivileged user: [minectl] "
+	read mineuser
+	## if empty, use default
+	if [ -z "$mineuser" ];then mineuser="minectl"; fi
+	## use a special uid?
+	echo -n "set a special uid for the user? [Y/n] "
+	read yesno
+	if [ -z "$yesno" ] || [ "$yesno" = "y" ] || [ "$yesno" = "yes" ];then
+		## get uid
+		echo -n "user id of minecraft user: [25565] "
+		read mineuid
+		## if empty, use default
+		if [ -z "$mineuid" ];then mineuid='25565'; fi
+	fi
+    echo
+	unset yesno
+	##
+}
+
+## create user
+f_create_user(){
+	## if setting a particular uid
+	if [ "$mineuid" ];then
+		pw useradd -u $mineuid -s /sbin/nologin -n $mineuser
+		## ensure success
+		if [ $? -ne 0 ];then
+			echo "failed to create user"
+			echo "aborting"
+			exit 1
+		fi
+	else
+		## no particular uid
+		pw useradd -s /sbin/nologin -n $mineuser
+		## ensure success
+		if [ $? -ne 0 ];then
+			echo "failed to create user"
+			echo "aborting"
+			exit 1
+		fi
+	fi
+}
+
+## add users to minecraft group
+f_add_group(){
+	echo "in order to use minectl, admin users must be a member of the $mineuser group"
+	## loop to get users
+	finished="no"
+	while [ "$finished" = "no" ];do
+		echo -n "username to add to group: "
+		read user
+		## if $user is empty, issue warning and move on
+		if [ -z "$user" ];then
+			echo "no user entered. you will have trouble using minectl without group membership"
+			echo -n "add a user [y/N] "
+			read yesno
+			if [ "$yesno" = "y" ] || [ "$yesno" = "yes" ];then
+				continue
+			else
+				echo "moving on"
+				finished="yes"
+			fi
+			unset yesno
+		else
+			pw usermod -G $mineuser -n $user
+		fi
+		## continue loop to add another user?
+		if [ "$finished" = "no" ];then
+			echo -n "add another user? [y/N] "
+			read yesno
+			case "$yesno" in
+				"y")   :;;
+				"yes") :;;
+				*)     finished="yes";;
+			esac
+			unset yesno
+		fi
+	done
+    echo
+	unset go
+	##
+}
+
+## prep config file
+f_prep_config(){
+	## populate fields to distribution config
+	cat ./src/minectl.conf | sed \
+		-e "s;skripDIR=change;skripDIR=$minectl_home;g" \
+		-e "s;srvBASE=change;srvBASE=$minesrv_base;g" \
+		-e "s;runDIR=change;runDIR=$minerun_base;g" \
+		-e "s;mineUSER=change;mineUSER=$mineuser;g" >> ./src/minectl.conf.dist
+	##
+}
+
+## install minectl
+f_install_minectl(){
+    echo "installing minectl"
+	## create minectl_home if it does not exist
+	if [ ! -d "$minectl_home" ];then mkdir -p "$minectl_home"; fi
+	## prep config file
+	f_prep_config
+	## copy minectl files
+	cp -r ./src/* "$minectl_home"
+	## remove new minectl.conf
+	rm ./src/minectl.conf.dist
+	cp "$minectl_home"/minectl.conf.dist "$minectl_home"/minectl.conf
+	## create symlink
+	ln -s "$minectl_home"/minectl /usr/local/bin/minectl
+	## set ownership and modes
+	## set all files to 664
+	find "$minectl_home" -type f | xargs chmod 664
+	## set all directories to 775
+	find "$minectl_home" -type d | xargs chmod 775
+	## make minectl script executable
+	chmod 774 "$minectl_home"/minectl
+	## make minectld executable
+	chmod 774 "$minectl_home"/minectld
+	## make notify executable
+	chmod 774 "$minectl_home"/notify
+	## config file shouldn't be world readable - contains passwords
+	chmod 660 "$minectl_home"/minectl.conf
+    chmod 440 "$minectl_home"/minectl.conf.dist
+	## set ownership
+	chown -R $mineuser:$mineuser "$minectl_home"
+	##
+}
+
+## install server structure
+f_install_server(){
+    echo "installing server structure"
+    ## create minesrv_base if it does not exist
+    if [ ! -d "$minesrv_base" ];then mkdir -p "$minesrv_base"; fi
+
+    ## copy structure
+    cp -r ./skel/srv/* "$minesrv_base"
+    ## set mode
+    find "$minesrv_base" -type f | xargs chmod 660
+    find "$minesrv_base" -type d | xargs chmod 770
+    ## set ownership
+    chown -R "$mineuser":"$mineuser" "$minesrv_base"
+    ##
+}
+
+## install runtime structure
+f_install_runfiles(){
+    echo "installing runtime structure"
+    ## create minerun_base if it does not exist
+    if [ ! -d "$minerun_base" ];then mkdir -p "$minerun_base"; fi
+    ## copy structure
+    cp -r ./skel/run/* "$minerun_base"
+    ## set mode
+    find "$minerun_base" -type f | xargs chmod 660
+    find "$minerun_base" -type d | xargs chmod 770
+    ## set ownership
+    chown -R "$mineuser":"$mineuser" "$minerun_base"
+    ##
+}
+##
+
+## BEGIN
+
+echo "welcome to minectl"
+echo "this script will attempt to install minectl on your FreeBSD system"
+echo
+
+## run initial condition tests
+f_initial_check
+if [ "$fail" = "yes" ];then
+	echo "your system has failed the initial conditions for installing minectl"
+    echo "aborting"
+	exit 1
+fi
+
+## get directory paths
+f_get_paths
+## get minectl user
+f_get_user
+## create minectl user
+f_create_user
+## add users to the new group
+#f_add_group
+echo "you will need to add your user account to the $mineuser group"
+echo '`--> the function to add users to this group is broken, FIX IT'
+## install minectl
+f_install_minectl
+## install server structure
+f_install_server
+## install runtime structure
+f_install_runfiles
+##
+
+##
+echo
+echo $banner
+cat ./docs/POSTINSTALL
+echo $banner
+##
+exit 0
+##[ GROND ]

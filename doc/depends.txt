@@ -1,0 +1,13 @@
+bash          # minectl
+sudo          # minectl
+
+java/openjdk  # Minecraft
+
+p7zip         # extracting the mcrcon ZIP file (not required)
+gcc	          # compiling the mcrcon program (if compiling yourself)
+
+## if using Minecraft-Overviewer
+rsync 	      # (optional)
+python
+py27-numpy
+py27-imaging

@@ -1,0 +1,66 @@
+#!/usr/local/bin/bash
+#
+## uninstall - completely remove minectl
+
+## Copyright (c) 2014, Colvin Wellborn (GROND)
+## see the LICENSE included in the distribution for terms
+
+## v0.1    { 2014-10-10
+version="0.1"
+##
+if [ "$1" = "--version" ];then echo "$version"; exit 0; fi
+##
+
+## must be root
+if [ "$UID" -ne 0 ];then
+	echo "[ minectl-uninstaller ]: must be root"
+	exit 1
+fi
+
+### determine paths
+## find config file
+minectl_dir=$( dirname $( realpath $( which minectl )))
+srv_dir=$( grep -e "^srvBASE" $minectl_dir/minectl.conf | uniq | cut -d'=' -f2 | tr -d '"' )
+run_dir=$( grep -e "^runDIR" $minectl_dir/minectl.conf | uniq |  cut -d'=' -f2 | tr -d '"' )
+mineuser=$( grep -e "^mineUSER" $minectl_dir/minectl.conf | uniq | cut -d'=' -f2 | tr -d '"' )
+
+## backup archives
+echo -n "move the archive directory first? [y/n] "
+read yesno
+if [ "$yesno" = "n" ] || [ "$yesno" = "N" ];then
+	do_bk_move="n"
+else
+	do_bk_move="y"
+fi
+if [ "$do_bk_move" = "y" ];then
+	echo -n "move it where? "
+	read move_path
+	mv "$srv_dir"/bk $move_path
+	if [ $? -eq 0 ];then
+		echo "done"
+	else
+		echo "PROBLEM"
+	fi
+fi
+
+## remove srv
+rm -r "$srv_dir"
+## remove run
+rm -r "$run_dir"
+## remove minectl
+rm -r "$minectl_dir"
+## remove symlink
+rm /usr/local/bin/minectl
+## remove mcrcon
+if [ -e /usr/local/bin/mcrcon ];then
+    rm /usr/local/bin/mcrcon
+fi
+## remove user
+pw userdel -n $mineuser
+## remove group
+pw groupdel -n $mineuser
+##
+echo "done"
+##
+exit 0
+##
