@@ -563,7 +563,7 @@ f_runstat(){
 		## Log server launch time
 		date "+%m-%d-%y_%H:%M" > $runDIR/"$worldNAME"/launch_time
 		## Log server pid
-		srv_pid=`ps axww | grep "$worldNAME" | grep -v "minectl" | grep -v "grep" | awk '{ print $1 }'`
+		srv_pid=`ps axww | grep "$worldNAME" | grep -v "minectl" | grep "java" | grep -v "grep" | awk '{ print $1 }'`
 		echo $srv_pid > $runDIR/"$worldNAME"/srv_pid
 		## Log server listening port
 		srv_port=`grep "server-port" $srvsDIR/"$worldNAME"/server.properties | cut -d"=" -f2`
